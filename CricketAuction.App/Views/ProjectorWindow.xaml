@@ -1,0 +1,9 @@
+<Window x:Class="CricketAuction.App.Views.ProjectorWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Auction · Projector" Width="1200" Height="800" Background="#102A26" KeyDown="OnKeyDown">
+    <Grid Margin="45"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <TextBlock Text="{Binding Title}" Foreground="#7CE2BD" FontSize="30"/>
+        <Grid Grid.Row="1" Margin="0,35"><Grid.ColumnDefinitions><ColumnDefinition Width="2*"/><ColumnDefinition Width="3*"/></Grid.ColumnDefinitions>
+            <Border Background="#19392F" CornerRadius="20" Margin="0,0,35,0"><Grid><TextBlock Text="{Binding PhotoMessage}" Foreground="#ABC2B8" TextAlignment="Center" VerticalAlignment="Center"/><Image Source="{Binding Selected.Photo, Converter={StaticResource Photo}}" Stretch="Uniform"/></Grid></Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding Selected.FullName}" FontSize="56" Foreground="White" TextWrapping="Wrap" FontWeight="Bold"/><TextBlock Text="{Binding Selected.PlayerType}" FontSize="32" Foreground="#7CE2BD" Margin="0,15"/><TextBlock Text="{Binding Selected.Jersey}" Foreground="White" FontSize="24"/><TextBlock Text="{Binding Selected.Status}" FontSize="42" Foreground="#F6C46A" Margin="0,30,0,10"/><TextBlock Text="{Binding Selected.SoldPrice}" FontSize="64" Foreground="White"/><TextBlock Text="{Binding Selected.TeamName}" FontSize="32" Foreground="#7CE2BD"/></StackPanel>
+        </Grid><TextBlock Grid.Row="2" Text="Move this window to the projector · F11 fullscreen · Esc close" Foreground="#ABC2B8"/>
+    </Grid>
+</Window>

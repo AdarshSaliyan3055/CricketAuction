@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="CricketAuction.App/CricketAuction.App.csproj" />
+  <Project Path="CricketAuction.Domain/CricketAuction.Domain.csproj" />
+  <Project Path="CricketAuction.Infrastructure/CricketAuction.Infrastructure.csproj" />
+  <Project Path="CricketAuction.Tests/CricketAuction.Tests.csproj" />
+</Solution>

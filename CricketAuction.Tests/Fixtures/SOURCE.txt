@@ -1,0 +1,4 @@
+example.heic is the public libheif example image, used to verify HEIC decoding.
+Source: https://github.com/strukturag/libheif/blob/master/examples/example.heic
+Downloaded: 2026-10-22
+The upstream examples license is provided in libheif-examples-LICENSE.txt.

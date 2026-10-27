@@ -1,0 +1,116 @@
+<Window x:Class="CricketAuction.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Cricket Auction · Live desk" Width="1500" Height="960" MinWidth="1100" MinHeight="720" WindowStartupLocation="CenterScreen" PreviewKeyDown="OnKeyDown" FontFamily="Segoe UI" FontSize="13" Background="{DynamicResource Canvas}" Foreground="{DynamicResource Ink}">
+    <Window.Resources>
+        <Style x:Key="OverviewNav" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Padding" Value="10,8"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/></Style>
+        <Style x:Key="DashboardNav" TargetType="Button" BasedOn="{StaticResource OverviewNav}"><Style.Triggers><DataTrigger Binding="{Binding Section}" Value="Dashboard"><Setter Property="Background" Value="#157952"/><Setter Property="Foreground" Value="White"/><Setter Property="BorderThickness" Value="0"/></DataTrigger></Style.Triggers></Style>
+        <Style x:Key="SoldNav" TargetType="Button" BasedOn="{StaticResource OverviewNav}"><Style.Triggers><DataTrigger Binding="{Binding Section}" Value="Sold"><Setter Property="Background" Value="#157952"/><Setter Property="Foreground" Value="White"/><Setter Property="BorderThickness" Value="0"/></DataTrigger></Style.Triggers></Style>
+        <Style x:Key="UnsoldNav" TargetType="Button" BasedOn="{StaticResource OverviewNav}"><Style.Triggers><DataTrigger Binding="{Binding Section}" Value="Unsold"><Setter Property="Background" Value="#157952"/><Setter Property="Foreground" Value="White"/><Setter Property="BorderThickness" Value="0"/></DataTrigger></Style.Triggers></Style>
+        <Style x:Key="AvailableNav" TargetType="Button" BasedOn="{StaticResource OverviewNav}"><Style.Triggers><DataTrigger Binding="{Binding Section}" Value="Available"><Setter Property="Background" Value="#157952"/><Setter Property="Foreground" Value="White"/><Setter Property="BorderThickness" Value="0"/></DataTrigger></Style.Triggers></Style>
+    </Window.Resources>
+    <Grid Margin="20,16,18,12">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="0,0,0,12">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock Text="●  LIVE AUCTION DESK" Foreground="#159963" FontSize="10" FontWeight="Bold"/>
+                <TextBlock Text="{Binding Title}" FontSize="28" FontWeight="SemiBold" Margin="0,2,0,0"/>
+                <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
+            </StackPanel>
+            <WrapPanel Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right" MaxWidth="700">
+                <WrapPanel.Resources><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Padding" Value="10,6"/><Setter Property="Margin" Value="0,0,5,4"/><Setter Property="FontSize" Value="12"/></Style></WrapPanel.Resources>
+                <Button Content="New auction" Command="{Binding NewCommand}"/><Button Content="Auctions" Command="{Binding AuctionsCommand}"/><Button Content="Open" Command="{Binding OpenCommand}"/><Button Content="Backup" Command="{Binding BackupCommand}"/><Button Content="Restore" Command="{Binding RestoreCommand}"/><Button Content="Settings" Command="{Binding SettingsCommand}"/>
+            </WrapPanel>
+        </Grid>
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="205" MinWidth="180"/><ColumnDefinition Width="12"/><ColumnDefinition Width="2.1*" MinWidth="470"/><ColumnDefinition Width="12"/><ColumnDefinition Width="1.3*" MinWidth="330"/></Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Style="{StaticResource Card}" Margin="0" Padding="10">
+                <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel>
+                    <TextBlock Text="AUCTION OVERVIEW" Style="{StaticResource Caption}" Margin="5,4,0,8"/>
+                    <Button Tag="Dashboard" Click="Navigate" Style="{StaticResource DashboardNav}"><DockPanel><TextBlock Text="Registered"/><TextBlock Text="{Binding Stats.Total}" DockPanel.Dock="Right" FontWeight="Bold" Margin="12,0,0,0"/></DockPanel></Button>
+                    <Button Tag="Sold" Click="Navigate" Style="{StaticResource SoldNav}"><DockPanel><TextBlock Text="Sold"/><TextBlock Text="{Binding Stats.Sold}" DockPanel.Dock="Right" FontWeight="Bold" Margin="12,0,0,0"/></DockPanel></Button>
+                    <Button Tag="Unsold" Click="Navigate" Style="{StaticResource UnsoldNav}"><DockPanel><TextBlock Text="Unsold"/><TextBlock Text="{Binding Stats.Unsold}" DockPanel.Dock="Right" FontWeight="Bold" Margin="12,0,0,0"/></DockPanel></Button>
+                    <Button Tag="Available" Click="Navigate" Style="{StaticResource AvailableNav}"><DockPanel><TextBlock Text="Available"/><TextBlock Text="{Binding Stats.Available}" DockPanel.Dock="Right" FontWeight="Bold" Margin="12,0,0,0"/></DockPanel></Button>
+                    <Separator Margin="4,9"/>
+                    <TextBlock Text="AUCTION VALUE" Style="{StaticResource Caption}" Margin="5,4,0,0"/><TextBlock Text="{Binding TotalValue}" FontSize="17" FontWeight="SemiBold" Margin="5,1,0,8"/>
+                    <TextBlock Text="AVERAGE SALE" Style="{StaticResource Caption}" Margin="5,0,0,0"/><TextBlock Text="{Binding AverageValue}" FontSize="17" FontWeight="SemiBold" Margin="5,1,0,8"/>
+                    <TextBlock Text="HIGHEST BID" Style="{StaticResource Caption}" Margin="5,0,0,0"/><TextBlock Text="{Binding HighestValue}" FontSize="17" FontWeight="SemiBold" Margin="5,1,0,8"/>
+                    <Separator Margin="4,4"/>
+                    <TextBlock Text="READINESS" Style="{StaticResource Caption}" Margin="5,3,0,5"/>
+                    <TextBlock Text="{Binding TeamReadiness}" FontSize="10" TextWrapping="Wrap" Margin="5,1,0,4"/>
+                    <TextBlock Text="{Binding PlayerReadiness}" FontSize="10" TextWrapping="Wrap" Margin="5,1,0,4"/>
+                    <TextBlock Text="{Binding PhotoReadiness}" FontSize="10" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" Margin="5,1,0,5"/>
+                    <Separator Margin="4,4"/>
+                    <Button Content="Teams &amp; squads" Command="{Binding TeamsCommand}" HorizontalContentAlignment="Left" Padding="9,7"/>
+                    <Button Content="Import players" Command="{Binding ImportCommand}" Style="{StaticResource Primary}" HorizontalContentAlignment="Left" Padding="9,7"/>
+                    <Button Content="Export Excel" Command="{Binding ExportCommand}" HorizontalContentAlignment="Left" Padding="9,7"/>
+                    <Button Content="Team report PDF" Command="{Binding TeamReportPdfCommand}" HorizontalContentAlignment="Left" Padding="9,7"/>
+                    <Button Content="Team poster PNG" Command="{Binding TeamPosterImageCommand}" HorizontalContentAlignment="Left" Padding="9,7"/>
+                    <Button Content="Generate PPT" Command="{Binding PptCommand}" HorizontalContentAlignment="Left" Padding="9,7"/>
+                </StackPanel></ScrollViewer>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource Card}" Margin="0" Padding="14">
+                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <StackPanel Grid.Row="0">
+                        <TextBlock Text="{Binding ListTitle}" FontSize="17" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBox x:Name="SearchBox" Text="{Binding Search, UpdateSourceTrigger=PropertyChanged, Delay=120}" FontSize="15" Padding="10,7" AutomationProperties.Name="Search players" ToolTip="Search name, phone or jersey · Ctrl+F"/>
+                        <WrapPanel Margin="0,7,0,2" IsEnabled="{Binding Ready}">
+                            <StackPanel Width="100" Margin="0,0,6,3"><TextBlock Text="Player type" Style="{StaticResource Caption}"/><ComboBox ItemsSource="{Binding Types}" SelectedItem="{Binding TypeFilter}"/></StackPanel>
+                            <StackPanel Width="100" Margin="0,0,6,3"><TextBlock Text="Batting" Style="{StaticResource Caption}"/><ComboBox ItemsSource="{Binding BattingStyles}" SelectedItem="{Binding BattingFilter}"/></StackPanel>
+                            <StackPanel Width="105" Margin="0,0,6,3"><TextBlock Text="Bowling" Style="{StaticResource Caption}"/><ComboBox ItemsSource="{Binding BowlingStyles}" SelectedItem="{Binding BowlingFilter}"/></StackPanel>
+                            <StackPanel Width="85" Margin="0,0,6,3"><TextBlock Text="City" Style="{StaticResource Caption}"/><ComboBox ItemsSource="{Binding Cities}" SelectedItem="{Binding CityFilter}"/></StackPanel>
+                            <StackPanel Width="62" Margin="0,0,6,3"><TextBlock Text="Round" Style="{StaticResource Caption}"/><ComboBox ItemsSource="{Binding Rounds}" SelectedItem="{Binding RoundFilter}"/></StackPanel>
+                            <StackPanel Width="90" Margin="0,0,0,3"><TextBlock Text="Team" Style="{StaticResource Caption}"/><ComboBox ItemsSource="{Binding TeamNames}" SelectedItem="{Binding TeamFilter}"/></StackPanel>
+                        </WrapPanel>
+                    </StackPanel>
+                    <Grid Grid.Row="1" Margin="0,5,0,8">
+                        <DataGrid x:Name="PlayerGrid" ItemsSource="{Binding Players}" SelectedItem="{Binding Selected}" IsReadOnly="True" AutoGenerateColumns="False" SelectionMode="Single" SelectionUnit="FullRow" MouseDoubleClick="OpenPlayer" IsEnabled="{Binding Ready}" AlternationCount="2">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="" Width="44"><DataGridTemplateColumn.CellTemplate><DataTemplate><Border Width="31" Height="38" Background="{DynamicResource Line}" CornerRadius="4"><Image Source="{Binding Photo, Converter={StaticResource Photo}}" Stretch="UniformToFill"/></Border></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                <DataGridTextColumn Header="Player" Binding="{Binding FullName}" Width="*" MinWidth="100"/><DataGridTextColumn Header="Type" Binding="{Binding PlayerType}" Width="92"/><DataGridTextColumn Header="Jersey" Binding="{Binding Jersey}" Width="85"/><DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="75" ElementStyle="{StaticResource StatusText}"/><DataGridTextColumn Header="Team" Binding="{Binding TeamName}" Width="65"/><DataGridTextColumn Header="Amount" Binding="{Binding SoldPrice}" SortMemberPath="SoldPaise" Width="80"/><DataGridTextColumn Header="Sold at" Binding="{Binding SoldAt, StringFormat=dd MMM HH:mm}" SortMemberPath="SoldAt" Width="95"/><DataGridTextColumn Header="City" Binding="{Binding AreaCity}" Width="75"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                        <TextBlock Text="No players match this view. Choose another status or clear the search." TextWrapping="Wrap" TextAlignment="Center" HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="300" Foreground="{DynamicResource Muted}" Margin="20"><TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed"/><Style.Triggers><DataTrigger Binding="{Binding HasPlayers}" Value="False"><Setter Property="Visibility" Value="Visible"/></DataTrigger></Style.Triggers></Style></TextBlock.Style></TextBlock>
+                    </Grid>
+                    <StackPanel Grid.Row="2">
+                        <WrapPanel><Button Content="Pick next player" Command="{Binding RandomCommand}" Style="{StaticResource Primary}" Padding="10,7"/><Button Content="Add player" Command="{Binding AddCommand}" Padding="10,7"/><Button Content="Start re-auction" Command="{Binding RoundCommand}" Padding="10,7"/><Button Content="Undo last action" Command="{Binding UndoCommand}" Padding="10,7"/></WrapPanel>
+                        <DockPanel Margin="0,5,0,0"><StackPanel><TextBlock Text="LAST SALE" Style="{StaticResource Caption}"/><TextBlock Text="{Binding LastSale}" TextWrapping="Wrap" Margin="0,2,0,0"/></StackPanel><Expander Header="Auction leaders" HorizontalAlignment="Right" Foreground="{DynamicResource Muted}"><TextBlock Text="{Binding Leaders}" TextWrapping="Wrap" Margin="4"/></Expander></DockPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <Border Grid.Column="4" Style="{StaticResource Card}" Margin="0" Padding="12">
+                <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+                    <Border Grid.Row="0" Background="{DynamicResource Input}" CornerRadius="8" Padding="8" Margin="0,0,0,10">
+                        <StackPanel><DockPanel Margin="2,0,2,5"><TextBlock Text="TEAM PURSES" FontWeight="Bold" FontSize="14"/><TextBlock Text="SPENT / LEFT" Style="{StaticResource Caption}" HorizontalAlignment="Right"/></DockPanel>
+                            <ItemsControl ItemsSource="{Binding Teams}" MaxHeight="190"><ItemsControl.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="3"/></ItemsPanelTemplate></ItemsControl.ItemsPanel><ItemsControl.ItemTemplate><DataTemplate><Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="5" Margin="2"><StackPanel HorizontalAlignment="Center"><Grid Width="24" Height="24"><Ellipse Fill="#DDF3E9"/><TextBlock Text="₹" Foreground="#157952" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid><TextBlock Text="{Binding Name}" FontSize="10" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" Margin="0,2,0,0"/><TextBlock Text="{Binding Remaining}" FontSize="10" Foreground="#157952" FontWeight="Bold" HorizontalAlignment="Center"/><TextBlock Text="{Binding Spent, StringFormat=Spent {0}}" FontSize="9" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+                            <DockPanel Margin="3,6,3,0"><TextBlock Text="TOTAL PURSE" Style="{StaticResource Caption}"/><TextBlock Text="{Binding TotalPurse}" FontWeight="Bold" Foreground="#157952" HorizontalAlignment="Right"/></DockPanel>
+                        </StackPanel>
+                    </Border>
+                    <Grid Grid.Row="1"><TextBlock Text="Select a player to start bidding" FontSize="17" TextWrapping="Wrap" VerticalAlignment="Center" HorizontalAlignment="Center" Foreground="{DynamicResource Muted}"/>
+                        <Grid Background="{DynamicResource Surface}" Visibility="{Binding ProfileVisible, Converter={StaticResource Visible}}"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                            <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"><StackPanel Margin="0,0,5,0">
+                                <DockPanel><TextBlock Text="ON THE BLOCK" Foreground="#157952" FontWeight="Bold" FontSize="10"/><TextBlock Text="{Binding Selected.JerseyNumber, StringFormat=PLAYER #{0}}" HorizontalAlignment="Right" Style="{StaticResource Caption}"/></DockPanel>
+                                <Border Height="145" Margin="0,8,0,10" CornerRadius="8" Background="{DynamicResource Input}" ClipToBounds="True"><Grid><TextBlock Text="{Binding PhotoMessage}" TextAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" FontSize="12"/><Image Source="{Binding Selected.Photo, Converter={StaticResource Photo}}" Stretch="Uniform"/></Grid></Border>
+                                <TextBlock Text="{Binding Selected.FullName}" FontSize="25" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Selected.PlayerType}" FontSize="16" Foreground="#159963" Margin="0,2,0,6"/>
+                                <WrapPanel><Button Content="Edit" Command="{Binding EditCommand}" Padding="8,5"/><Button Content="Photo" Command="{Binding PhotoCommand}" Padding="8,5"/><Button Content="Rotate photo" Command="{Binding RotatePhotoCommand}" Padding="8,5"/><Button Content="Reset photo" Command="{Binding RestorePhotoCommand}" Padding="8,5" Visibility="{Binding CanRestorePhoto, Converter={StaticResource Visible}}"/><Button Content="Big screen" Command="{Binding ProjectorCommand}" Padding="8,5"/></WrapPanel>
+                                <UniformGrid Columns="2" Margin="0,7,0,5"><StackPanel Margin="0,0,0,8"><TextBlock Text="AGE" Style="{StaticResource Caption}"/><TextBlock Text="{Binding Selected.Age, TargetNullValue=—}"/></StackPanel><StackPanel><TextBlock Text="PHONE" Style="{StaticResource Caption}"/><TextBlock Text="{Binding Selected.PhoneNumber}" TextWrapping="Wrap"/></StackPanel><StackPanel Margin="0,0,0,8"><TextBlock Text="CITY" Style="{StaticResource Caption}"/><TextBlock Text="{Binding Selected.AreaCity}" TextWrapping="Wrap"/></StackPanel><StackPanel><TextBlock Text="JERSEY" Style="{StaticResource Caption}"/><TextBlock Text="{Binding Selected.Jersey}"/><TextBlock Text="{Binding Selected.JerseySize}"/></StackPanel><StackPanel Margin="0,0,0,8"><TextBlock Text="BATTING" Style="{StaticResource Caption}"/><TextBlock Text="{Binding Selected.BattingStyle}" TextWrapping="Wrap"/></StackPanel><StackPanel><TextBlock Text="BOWLING" Style="{StaticResource Caption}"/><TextBlock Text="{Binding Selected.BowlingStyle}" TextWrapping="Wrap"/></StackPanel></UniformGrid>
+                                <Expander Header="Auction history" Margin="0,5" Foreground="{DynamicResource Ink}"><ItemsControl ItemsSource="{Binding History}"><ItemsControl.ItemTemplate><DataTemplate><Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="0,7"><StackPanel><TextBlock><Run Text="{Binding Mode=OneWay, Path=AuctionRound, StringFormat=Round {0}}"/><Run Text=" · "/><Run Text="{Binding Mode=OneWay, Path=Action}"/></TextBlock><TextBlock><Run Text="{Binding Mode=OneWay, Path=TeamName}"/><Run Text=" "/><Run Text="{Binding Mode=OneWay, Path=Amount}"/></TextBlock><TextBlock Text="{Binding LocalTime, StringFormat=dd MMM yyyy HH:mm}" Style="{StaticResource Caption}"/><TextBlock Text="{Binding Notes}" TextWrapping="Wrap"/></StackPanel></Border></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></Expander>
+                            </StackPanel></ScrollViewer>
+                            <StackPanel Grid.Row="1" Margin="0,8,0,0"><Border Background="{DynamicResource Input}" Padding="9" CornerRadius="7"><StackPanel><TextBlock Text="{Binding Selected.Status}" FontSize="16" Style="{StaticResource StatusText}"/><TextBlock><Run Text="{Binding Mode=OneWay, Path=Selected.AuctionRound, StringFormat=Round {0}}"/><Run Text="   "/><Run Text="{Binding Mode=OneWay, Path=Selected.TeamName}"/><Run Text="   "/><Run Text="{Binding Mode=OneWay, Path=Selected.SoldPrice}"/></TextBlock></StackPanel></Border><UniformGrid Columns="2" Margin="0,8,0,0" Visibility="{Binding CanAuctionSelected, Converter={StaticResource Visible}}"><Button x:Name="SoldButton" Content="SOLD  ·  S" Command="{Binding SoldCommand}" Style="{StaticResource Primary}" FontSize="17" Padding="10,12"/><Button Content="UNSOLD  ·  U" Command="{Binding UnsoldCommand}" Background="#F5D59D" Foreground="#573711" FontSize="17" Padding="10,12"/></UniformGrid></StackPanel>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+        <DockPanel Grid.Row="2" Margin="0,9,0,0"><WrapPanel DockPanel.Dock="Right"><Button Content="Photo failures" Command="{Binding PhotoFailuresCommand}" Visibility="{Binding HasPhotoFailures, Converter={StaticResource Visible}}" Padding="9,5"/><Button Content="Cache photos" Command="{Binding CacheCommand}" Padding="9,5"/></WrapPanel><TextBlock Text="{Binding Notice}" TextWrapping="Wrap" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/></DockPanel>
+        <Grid x:Name="BusyOverlay" IsVisibleChanged="LoaderVisibilityChanged" Grid.RowSpan="3" Panel.ZIndex="100" Background="#99081713" Visibility="{Binding Busy, Converter={StaticResource Visible}}" IsHitTestVisible="True" Focusable="True" KeyboardNavigation.TabNavigation="Cycle">
+            <Border Width="340" Padding="26,22" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <StackPanel>
+                    <TextBlock Text="Working" FontSize="20" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="Please wait while this operation completes." Foreground="{DynamicResource Muted}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,5,0,12"/>
+                    <TextBlock Text="{Binding PhotoProgressText}" Foreground="{DynamicResource Ink}" TextAlignment="Center" TextWrapping="Wrap" Margin="0,0,0,12" Visibility="{Binding IsCachingPhotos, Converter={StaticResource Visible}}"/>
+                    <ProgressBar Height="7" IsIndeterminate="True" Foreground="#159963" Background="{DynamicResource Line}"/>
+                    <Button Content="Cancel download" Command="{Binding CancelPhotosCommand}" HorizontalAlignment="Center" Margin="0,16,0,0" Padding="12,7" Visibility="{Binding IsCachingPhotos, Converter={StaticResource Visible}}"/>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
