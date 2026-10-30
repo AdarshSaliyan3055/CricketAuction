@@ -7,6 +7,7 @@ namespace CricketAuction.App;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel vm;
+    public event EventHandler? HomeRequested;
     public MainWindow(MainViewModel viewModel)
     {
         InitializeComponent(); vm = viewModel; DataContext = vm;
@@ -14,6 +15,7 @@ public partial class MainWindow : Window
         Closing += (_, e) => { if (vm.Busy) { MessageBox.Show(this, "Please wait for the current operation to finish. You can cancel photo downloads."); e.Cancel = true; } };
     }
     private void Navigate(object sender, RoutedEventArgs e) { vm.Section = ((Button)sender).Tag.ToString()!; SearchBox.Focus(); }
+    private void GoHome(object sender, RoutedEventArgs e) => HomeRequested?.Invoke(this, EventArgs.Empty);
     private void OpenPlayer(object sender, MouseButtonEventArgs e) { if (vm.Selected != null) SoldButton.Focus(); }
     private static void Run(ICommand command) { if (command.CanExecute(null)) command.Execute(null); }
     private void LoaderVisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)

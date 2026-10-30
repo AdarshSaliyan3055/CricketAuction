@@ -27,7 +27,11 @@ public partial class App : Application
         collection.AddSingleton<IBackupService, BackupService>(); collection.AddSingleton<DialogService>(); collection.AddSingleton<MainViewModel>();
         services = collection.BuildServiceProvider();
         DispatcherUnhandledException += (_, args) => { services.GetRequiredService<AppLog>().Write("UI error", args.Exception); args.Handled = true; if (e.Args.Contains("--smoke-test")) { System.IO.File.WriteAllText(System.IO.Path.Combine(services.GetRequiredService<Workspace>().Root, "smoke-error.txt"), args.Exception.ToString()); Shutdown(1); } else MessageBox.Show("Unable to complete the operation.\n" + args.Exception.Message, "Cricket Auction", MessageBoxButton.OK, MessageBoxImage.Warning); };
-        MainWindow = new MainWindow(services.GetRequiredService<MainViewModel>()); MainWindow.Show();
+        var viewModel = services.GetRequiredService<MainViewModel>();
+        MainWindow = smokeTest
+            ? new MainWindow(viewModel)
+            : new TournamentHubWindow(viewModel, services.GetRequiredService<AuctionService>(), services.GetRequiredService<Workspace>());
+        ShutdownMode = ShutdownMode.OnMainWindowClose; MainWindow.Show();
         if (e.Args.Contains("--smoke-test"))
         {
             SmokeHarness.Prepare(services);

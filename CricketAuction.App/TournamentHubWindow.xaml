@@ -1,0 +1,72 @@
+<Window x:Class="CricketAuction.App.TournamentHubWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Title="Tournament Hub" Width="1180" Height="800" MinWidth="900" MinHeight="650" WindowStartupLocation="CenterScreen" FontFamily="Segoe UI" FontSize="14" Background="{DynamicResource Canvas}" Foreground="{DynamicResource Ink}" IsVisibleChanged="HubVisibilityChanged">
+    <Window.Resources>
+        <Style x:Key="FeatureTile" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource Surface}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource Line}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="18"/>
+            <Setter Property="Margin" Value="0,0,12,12"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="VerticalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="BorderBrush" Value="#159963"/><Setter Property="Background" Value="{DynamicResource Input}"/></Trigger>
+                            <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.62"/></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Grid Margin="38,30">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <DockPanel Grid.Row="0" Margin="0,0,0,22">
+            <StackPanel>
+                <TextBlock Text="TOURNAMENT WORKSPACE" Foreground="#159963" FontSize="11" FontWeight="Bold"/>
+                <TextBlock Text="Tournament Hub" FontSize="34" FontWeight="SemiBold" Margin="0,4,0,0"/>
+                <TextBlock Text="Choose a feature" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/>
+            </StackPanel>
+            <Button DockPanel.Dock="Right" Content="Open auction" Click="OpenAuction" Style="{StaticResource FeatureTile}" Padding="16,9" Margin="12,0,0,0" VerticalAlignment="Center" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+        </DockPanel>
+        <Border Grid.Row="1" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="6" Padding="16,12" Margin="0,0,0,18">
+            <DockPanel>
+                <TextBlock Text="ACTIVE TOURNAMENT" Foreground="{DynamicResource Muted}" FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="SemiBold" Margin="14,0,0,0"/>
+                <TextBlock Text="{Binding Subtitle}" Foreground="{DynamicResource Muted}" HorizontalAlignment="Right"/>
+            </DockPanel>
+        </Border>
+        <UniformGrid Grid.Row="2" Columns="4" Rows="2" VerticalAlignment="Stretch">
+            <Button Style="{StaticResource FeatureTile}" Click="OpenAuction" Tag="Auction">
+                <StackPanel><TextBlock Text="01  /  AUCTION" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Auction" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Run the player auction, review bids and manage registrations." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/></StackPanel>
+            </Button>
+            <Button Style="{StaticResource FeatureTile}" Click="OpenTeams" Tag="Teams &amp; Squads">
+                <StackPanel><TextBlock Text="02  /  SQUADS" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Teams &amp; Squads" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Review purchased players, captains, purse balances and squad mix." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/></StackPanel>
+            </Button>
+            <Button Style="{StaticResource FeatureTile}" IsEnabled="False">
+                <StackPanel><TextBlock Text="03  /  MATCHES" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Fixtures" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Schedules, grounds and tournament rounds." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/><TextBlock Text="COMING LATER" Foreground="{DynamicResource Muted}" FontSize="9" FontWeight="Bold" Margin="0,12,0,0"/></StackPanel>
+            </Button>
+            <Button Style="{StaticResource FeatureTile}" IsEnabled="False">
+                <StackPanel><TextBlock Text="04  /  MATCHES" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Live Scoring" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Ball-by-ball scoring and spectator scoreboards." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/><TextBlock Text="COMING LATER" Foreground="{DynamicResource Muted}" FontSize="9" FontWeight="Bold" Margin="0,12,0,0"/></StackPanel>
+            </Button>
+            <Button Style="{StaticResource FeatureTile}" IsEnabled="False">
+                <StackPanel><TextBlock Text="05  /  STANDINGS" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Points Table" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Standings, match points and net run rate." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/><TextBlock Text="COMING LATER" Foreground="{DynamicResource Muted}" FontSize="9" FontWeight="Bold" Margin="0,12,0,0"/></StackPanel>
+            </Button>
+            <Button Style="{StaticResource FeatureTile}" IsEnabled="False">
+                <StackPanel><TextBlock Text="06  /  INSIGHTS" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Player Statistics" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Runs, wickets, strike rates and awards." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/><TextBlock Text="COMING LATER" Foreground="{DynamicResource Muted}" FontSize="9" FontWeight="Bold" Margin="0,12,0,0"/></StackPanel>
+            </Button>
+            <Button Style="{StaticResource FeatureTile}" IsEnabled="False">
+                <StackPanel><TextBlock Text="07  /  PLAYERS" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Player Registration" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Collect player profiles, roles, photos and eligibility." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/><TextBlock Text="COMING LATER" Foreground="{DynamicResource Muted}" FontSize="9" FontWeight="Bold" Margin="0,12,0,0"/></StackPanel>
+            </Button>
+            <Button Style="{StaticResource FeatureTile}" IsEnabled="False">
+                <StackPanel><TextBlock Text="08  /  ARCHIVE" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Tournament History" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Browse past tournaments, teams, results and winners." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/><TextBlock Text="COMING LATER" Foreground="{DynamicResource Muted}" FontSize="9" FontWeight="Bold" Margin="0,12,0,0"/></StackPanel>
+            </Button>
+        </UniformGrid>
+        <TextBlock Grid.Row="3" Text="Tournament data remains shared across features." Foreground="{DynamicResource Muted}" Margin="0,6,0,0"/>
+    </Grid>
+</Window>

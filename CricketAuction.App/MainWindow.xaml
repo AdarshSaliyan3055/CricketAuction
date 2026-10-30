@@ -17,6 +17,7 @@
             </StackPanel>
             <WrapPanel Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right" MaxWidth="700">
                 <WrapPanel.Resources><Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}"><Setter Property="Padding" Value="10,6"/><Setter Property="Margin" Value="0,0,5,4"/><Setter Property="FontSize" Value="12"/></Style></WrapPanel.Resources>
+                <Button Content="Home" Click="GoHome"/>
                 <Button Content="New auction" Command="{Binding NewCommand}"/><Button Content="Auctions" Command="{Binding AuctionsCommand}"/><Button Content="Open" Command="{Binding OpenCommand}"/><Button Content="Backup" Command="{Binding BackupCommand}"/><Button Content="Restore" Command="{Binding RestoreCommand}"/><Button Content="Settings" Command="{Binding SettingsCommand}"/>
             </WrapPanel>
         </Grid>
