@@ -48,8 +48,8 @@
             <Button Style="{StaticResource FeatureTile}" Click="OpenTeams" Tag="Teams &amp; Squads">
                 <StackPanel><TextBlock Text="02  /  SQUADS" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Teams &amp; Squads" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Review purchased players, captains, purse balances and squad mix." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/></StackPanel>
             </Button>
-            <Button Style="{StaticResource FeatureTile}" IsEnabled="False">
-                <StackPanel><TextBlock Text="03  /  MATCHES" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Fixtures" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Schedules, grounds and tournament rounds." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/><TextBlock Text="COMING LATER" Foreground="{DynamicResource Muted}" FontSize="9" FontWeight="Bold" Margin="0,12,0,0"/></StackPanel>
+            <Button Style="{StaticResource FeatureTile}" Click="OpenFixtures">
+                <StackPanel><TextBlock Text="03  /  MATCHES" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Fixtures" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="League schedules, two pools, semifinals and finals." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/></StackPanel>
             </Button>
             <Button Style="{StaticResource FeatureTile}" IsEnabled="False">
                 <StackPanel><TextBlock Text="04  /  MATCHES" Foreground="#159963" FontSize="10" FontWeight="Bold"/><TextBlock Text="Live Scoring" FontSize="21" FontWeight="SemiBold" Margin="0,10,0,5"/><TextBlock Text="Ball-by-ball scoring and spectator scoreboards." TextWrapping="Wrap" Foreground="{DynamicResource Muted}"/><TextBlock Text="COMING LATER" Foreground="{DynamicResource Muted}" FontSize="9" FontWeight="Bold" Margin="0,12,0,0"/></StackPanel>

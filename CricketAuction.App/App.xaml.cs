@@ -24,13 +24,14 @@ public partial class App : Application
         collection.AddSingleton<IPowerPointService, PowerPointService>(); collection.AddSingleton<IImageService, ImageService>();
         collection.AddSingleton<TeamReportPdfService>();
         collection.AddSingleton<TeamPosterImageService>();
+        collection.AddSingleton<FixtureService>();
         collection.AddSingleton<IBackupService, BackupService>(); collection.AddSingleton<DialogService>(); collection.AddSingleton<MainViewModel>();
         services = collection.BuildServiceProvider();
         DispatcherUnhandledException += (_, args) => { services.GetRequiredService<AppLog>().Write("UI error", args.Exception); args.Handled = true; if (e.Args.Contains("--smoke-test")) { System.IO.File.WriteAllText(System.IO.Path.Combine(services.GetRequiredService<Workspace>().Root, "smoke-error.txt"), args.Exception.ToString()); Shutdown(1); } else MessageBox.Show("Unable to complete the operation.\n" + args.Exception.Message, "Cricket Auction", MessageBoxButton.OK, MessageBoxImage.Warning); };
         var viewModel = services.GetRequiredService<MainViewModel>();
         MainWindow = smokeTest
             ? new MainWindow(viewModel)
-            : new TournamentHubWindow(viewModel, services.GetRequiredService<AuctionService>(), services.GetRequiredService<Workspace>());
+            : new TournamentHubWindow(viewModel, services.GetRequiredService<AuctionService>(), services.GetRequiredService<Workspace>(), services.GetRequiredService<FixtureService>());
         ShutdownMode = ShutdownMode.OnMainWindowClose; MainWindow.Show();
         if (e.Args.Contains("--smoke-test"))
         {

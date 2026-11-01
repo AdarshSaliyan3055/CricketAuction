@@ -9,15 +9,18 @@ public partial class TournamentHubWindow : Window
     private readonly MainViewModel vm;
     private readonly AuctionService auction;
     private readonly Workspace workspace;
+    private readonly FixtureService fixtureService;
     private MainWindow? auctionWindow;
     private TeamsSquadsWindow? teamsWindow;
+    private FixturesWindow? fixturesWindow;
 
-    public TournamentHubWindow(MainViewModel viewModel, AuctionService auction, Workspace workspace)
+    public TournamentHubWindow(MainViewModel viewModel, AuctionService auction, Workspace workspace, FixtureService fixtureService)
     {
         InitializeComponent();
         vm = viewModel;
         this.auction = auction;
         this.workspace = workspace;
+        this.fixtureService = fixtureService;
         DataContext = vm;
         Loaded += (_, _) => RefreshTournament();
     }
@@ -61,5 +64,23 @@ public partial class TournamentHubWindow : Window
         }
         teamsWindow.Show();
         teamsWindow.Activate();
+    }
+
+    private void OpenFixtures(object sender, RoutedEventArgs e)
+    {
+        if (!vm.HasSession)
+        {
+            MessageBox.Show(this, "Open the Auction feature and create or select a tournament first.", "Fixtures", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+        Hide();
+        if (fixturesWindow == null)
+        {
+            fixturesWindow = new FixturesWindow(fixtureService, auction, workspace);
+            fixturesWindow.HomeRequested += (_, _) => { fixturesWindow.Hide(); Show(); Activate(); };
+            fixturesWindow.Closed += (_, _) => { fixturesWindow = null; Show(); Activate(); };
+        }
+        fixturesWindow.Show();
+        fixturesWindow.Activate();
     }
 }
