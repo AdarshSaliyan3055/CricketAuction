@@ -35,6 +35,74 @@ public sealed class AuctionTests : IDisposable
         var updatedTeam = budgetAuction.Teams().Single(team => team.Id == teams[0].Id);
         Assert.Equal(150_000L, updatedTeam.BudgetPaise!.Value - updatedTeam.SpentPaise);
     }
+    [Fact] public void FreeIconPlayerIsSeparateFromSalesAndCanBeRemovedBeforeAuctionStarts()
+    {
+        var icon = Player(); var team = Team();
+        service.AssignIconPlayer(icon.Id, team.Id);
+
+        var assigned = Assert.Single(service.Players());
+        Assert.True(assigned.IsIconPlayer); Assert.Equal(team.Id, assigned.IconTeamId); Assert.Equal(AuctionStatus.Available, assigned.Status);
+        var squad = Assert.Single(service.Teams());
+        Assert.Equal(1, squad.PlayerCount); Assert.Equal(0, squad.SpentPaise);
+        Assert.Equal(0, Statistics.Calculate(service.Players()).Sold);
+        Assert.Equal(0, Statistics.Calculate(service.Players()).Available);
+        Assert.Throws<InvalidOperationException>(() => service.Sell(icon.Id, team.Id, 100_000, ""));
+        Assert.Throws<InvalidOperationException>(() => service.MarkUnsold(icon.Id));
+
+        service.RemoveIconPlayer(team.Id, icon.Id);
+        Assert.False(Assert.Single(service.Players()).IsIconPlayer);
+        Assert.Equal(0, Assert.Single(service.Teams()).PlayerCount);
+        service.Sell(icon.Id, team.Id, 100_000, "After icon removal");
+        Assert.Equal(AuctionStatus.Sold, Assert.Single(service.Players()).Status);
+        Assert.Single(service.History());
+    }
+
+    [Fact] public void IconAssignmentCountsTowardSquadLimitAndLocksWhenAuctionStarts()
+    {
+        var icon = Player(); var team = Team(); service.AssignIconPlayer(icon.Id, team.Id);
+        var players = Enumerable.Range(1, Team.SquadLimit).Select(index => Player($"Squad Player {index}", $"900000{index:0000}", index.ToString())).ToList();
+        foreach (var player in players.Take(Team.SquadLimit - 1)) service.Sell(player.Id, team.Id, 1, "");
+        Assert.Equal(Team.SquadLimit, Assert.Single(service.Teams()).PlayerCount);
+        Assert.Throws<InvalidOperationException>(() => service.Sell(players[^1].Id, team.Id, 1, ""));
+        Assert.Throws<InvalidOperationException>(() => service.RemoveIconPlayer(team.Id, icon.Id));
+        Assert.Throws<InvalidOperationException>(() => service.AssignIconPlayer(players[^1].Id, team.Id));
+        Assert.Equal(Team.SquadLimit, Assert.Single(service.Teams()).PlayerCount);
+    }
+    [Fact] public void TeamCanHaveMultipleIconPlayersAndRemoveOnlyOne()
+    {
+        var firstIcon = Player("Icon Player One", "9000011001", "11");
+        var secondIcon = Player("Icon Player Two", "9000011002", "12");
+        var team = Team();
+        service.AssignIconPlayer(firstIcon.Id, team.Id);
+        service.AssignIconPlayer(secondIcon.Id, team.Id);
+
+        var assignedTeam = Assert.Single(service.Teams());
+        Assert.Equal(2, assignedTeam.IconPlayerCount);
+        Assert.Equal(2, assignedTeam.PlayerCount);
+        Assert.Contains(firstIcon.FullName, assignedTeam.IconPlayerName);
+        Assert.Contains(secondIcon.FullName, assignedTeam.IconPlayerName);
+
+        service.RemoveIconPlayer(team.Id, firstIcon.Id);
+        Assert.False(service.Players().Single(player => player.Id == firstIcon.Id).IsIconPlayer);
+        Assert.True(service.Players().Single(player => player.Id == secondIcon.Id).IsIconPlayer);
+        Assert.Equal(1, Assert.Single(service.Teams()).PlayerCount);
+    }
+
+    [Fact] public void ExistingSingleIconAssignmentSchemaUpgradesToMultipleAssignments()
+    {
+        var firstIcon = Player("Legacy Icon", "9000012001", "21");
+        var secondIcon = Player("Second Icon", "9000012002", "22");
+        var team = Team();
+        using (var db = workspace.Open())
+        {
+            db.Database.ExecuteSqlRaw("CREATE TABLE IconAssignments (PlayerId INTEGER PRIMARY KEY REFERENCES Players(Id) ON DELETE CASCADE, TeamId INTEGER NOT NULL UNIQUE REFERENCES Teams(Id) ON DELETE CASCADE)");
+            db.Database.ExecuteSqlInterpolated($"INSERT INTO IconAssignments (PlayerId, TeamId) VALUES ({firstIcon.Id}, {team.Id})");
+        }
+
+        Assert.True(service.Players().Single(player => player.Id == firstIcon.Id).IsIconPlayer);
+        service.AssignIconPlayer(secondIcon.Id, team.Id);
+        Assert.Equal(2, Assert.Single(service.Teams()).IconPlayerCount);
+    }
     [Fact] public void SavedAuctionsCanBeRenamedAndDeletedSafely()
     {
         var originalPath = workspace.DatabasePath;
@@ -259,6 +327,27 @@ public sealed class AuctionTests : IDisposable
         var p = Player(); var t = Team(); service.Sell(p.Id, t.Id, 250000, ""); var file = Path.Combine(root, "report.xlsx"); new ExportService(workspace, service, log).Export(file, service.Players(), true);
         using var book = new XLWorkbook(file); Assert.Equal(5, book.Worksheets.Count); Assert.Equal("Adarsh Saliyan", book.Worksheet("Players").Cell(2, 2).GetString()); Assert.Equal(2500, book.Worksheet("Players").Cell(2, 14).GetDouble()); Assert.Equal("Sold", book.Worksheet("Auction History").Cell(2, 5).GetString());
         var purchases = book.Worksheet("Team Purchases"); Assert.Equal("Adarsh Saliyan", purchases.Cell(2, 3).GetString()); Assert.Equal(2500, purchases.Cell(2, 10).GetDouble()); Assert.Equal("TEAM TOTAL", purchases.Cell(3, 2).GetString()); Assert.Equal("AUCTION TOTAL", purchases.Cell(4, 2).GetString()); Assert.Equal(2500, purchases.Cell(4, 10).GetDouble());
+    }
+    [Fact] public void FreeIconPlayerAppearsInTeamExportWithoutChangingAuctionTotals()
+    {
+        var icon = Player(); var team = Team(); service.AssignIconPlayer(icon.Id, team.Id);
+        var path = Path.Combine(root, "icon-report.xlsx");
+        new ExportService(workspace, service, log).Export(path, service.Players(), true);
+
+        using var book = new XLWorkbook(path);
+        var playerSheet = book.Worksheet("Players");
+        Assert.Equal("Available", playerSheet.Cell(2, 12).GetString());
+        Assert.Equal("Yes", playerSheet.Cell(2, 21).GetString());
+        Assert.Equal(team.Name, playerSheet.Cell(2, 22).GetString());
+        var purchases = book.Worksheet("Team Purchases");
+        Assert.Equal(icon.FullName, purchases.Cell(2, 3).GetString());
+        Assert.Equal(0, purchases.Cell(2, 10).GetDouble());
+        Assert.Contains("ICON PLAYER", purchases.Cell(2, 13).GetString());
+        Assert.Equal("ICON PLAYER", purchases.Cell(2, 14).GetString());
+        Assert.Equal("AUCTION TOTAL", purchases.Cell(3, 2).GetString());
+        Assert.Equal(0, purchases.Cell(3, 10).GetDouble());
+        Assert.Empty(service.History());
+        Assert.Equal(0, Statistics.Calculate(service.Players()).Sold);
     }
     [Fact] public void TeamPdfContainsOnePagePerTeam()
     {

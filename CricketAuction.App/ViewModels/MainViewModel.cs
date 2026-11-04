@@ -118,7 +118,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
     private bool CheckReadiness()
     {
-        if (Teams.Count == 0 || all.Count == 0)
+        if (Teams.Count == 0 || all.All(player => player.IsIconPlayer))
         {
             dialogs.Error($"Auction is not ready.\n{TeamReadiness}\n{PlayerReadiness}\nConfigure teams and import players before bidding."); return false;
         }
@@ -129,15 +129,16 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string HighestValue => Money.Format(Stats.HighestPaise);
     public string TotalPurse => Teams.Any(team => !team.BudgetPaise.HasValue) ? "Unlimited" : Money.Format(Teams.Sum(team => team.BudgetPaise!.Value));
     public string TeamReadiness => Teams.Count == 0 ? "No teams configured" : $"{Teams.Count} teams configured";
-    public string PlayerReadiness => all.Count == 0 ? "No players imported" : $"{all.Count} players imported";
+    public string PlayerReadiness => all.All(player => player.IsIconPlayer) ? "No auction-eligible players imported" : $"{all.Count(player => !player.IsIconPlayer)} players available to auction";
     public string PhotoReadiness
     {
         get
         {
             if (IsCachingPhotos) return PhotoProgressText;
-            var linked = all.Count(player => !string.IsNullOrWhiteSpace(player.PlayerPhotoUrl));
-            var cached = all.Count(player => !string.IsNullOrWhiteSpace(player.PlayerPhotoUrl) && player.Photo is { Length: > 0 });
-            return $"{all.Count} players in auction · Photos: {cached}/{linked} linked photos saved · {all.Count - linked} players without photo links"
+            var auctionPlayers = all.Where(player => !player.IsIconPlayer).ToList();
+            var linked = auctionPlayers.Count(player => !string.IsNullOrWhiteSpace(player.PlayerPhotoUrl));
+            var cached = auctionPlayers.Count(player => !string.IsNullOrWhiteSpace(player.PlayerPhotoUrl) && player.Photo is { Length: > 0 });
+            return $"{auctionPlayers.Count} players in auction · Photos: {cached}/{linked} linked photos saved · {auctionPlayers.Count - linked} players without photo links"
                 + (HasPhotoFailures ? $"; {PhotoFailures.Count} failed on last attempt" : "");
         }
     }
@@ -174,7 +175,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
     public bool CanRestorePhoto { get => canRestorePhoto; private set { if (Set(ref canRestorePhoto, value)) Changed(nameof(CanRestorePhoto)); } }
     public bool ProfileVisible => Selected != null;
-    public bool CanAuctionSelected => Session != null && Selected is { Status: AuctionStatus.Available } player && player.AuctionRound == Session.CurrentRound;
+    public bool CanAuctionSelected => Session != null && Selected is { Status: AuctionStatus.Available, IsIconPlayer: false } player && player.AuctionRound == Session.CurrentRound;
     public string PhotoMessage => Selected?.Photo == null ? "PLAYER\nPHOTO\n\nPhoto unavailable\nChoose a local photo or cache photos" : "";
     private static List<string> Options(IEnumerable<string> values) => ["All", .. values.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().Order()];
     public void Refresh()
@@ -188,7 +189,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
     private void Filter()
     {
-        var items = all.Where(p => PlayerRules.Matches(p, Search) && (Section == "Dashboard" || p.Status.ToString() == Section)
+        var items = all.Where(p => PlayerRules.Matches(p, Search) && (Section == "Dashboard" || (p.Status.ToString() == Section && !(p.IsIconPlayer && Section is "Available" or "Unsold")))
             && (TypeFilter == "All" || p.PlayerType == TypeFilter) && (BattingFilter == "All" || p.BattingStyle == BattingFilter)
             && (BowlingFilter == "All" || p.BowlingStyle == BowlingFilter) && (CityFilter == "All" || p.AreaCity == CityFilter)
             && (RoundFilter == "All" || p.AuctionRound.ToString() == RoundFilter) && (TeamFilter == "All" || p.TeamName == TeamFilter)).ToList();
@@ -299,10 +300,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var token = photoCancellation.Token;
         try
         {
-            var missing = all.Where(player => player.Photo is not { Length: > 0 } && !string.IsNullOrWhiteSpace(player.PlayerPhotoUrl)).ToList();
+            var auctionPlayers = all.Where(player => !player.IsIconPlayer).ToList();
+            var missing = auctionPlayers.Where(player => player.Photo is not { Length: > 0 } && !string.IsNullOrWhiteSpace(player.PlayerPhotoUrl)).ToList();
             PhotoFailures.Clear(); Changed(nameof(HasPhotoFailures));
             var completed = 0; var saved = 0; var failures = new List<(string Name, string Reason)>();
-            PhotoProgressText = missing.Count == 0 ? $"{all.Count} players in auction. All linked player photos are already saved." : $"{all.Count} players in auction. Downloading photos: 0 of {missing.Count}; 0 photos saved.";
+            PhotoProgressText = missing.Count == 0 ? $"{auctionPlayers.Count} players in auction. All linked player photos are already saved." : $"{auctionPlayers.Count} players in auction. Downloading photos: 0 of {missing.Count}; 0 photos saved.";
             if (missing.Count == 0) { Notice = PhotoProgressText; return; }
             foreach (var batch in missing.Chunk(4))
             {
@@ -320,7 +322,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                     }
                     else if (result.Result.Error is { } error && error != "Download cancelled.") { failures.Add((result.Player.FullName, error)); PhotoFailures.Add(new(result.Player.Id, result.Player.FullName, error)); }
                     completed++;
-                    PhotoProgressText = $"{all.Count} players in auction. Downloading photos: {completed} of {missing.Count}; {saved} photos saved.";
+                    PhotoProgressText = $"{auctionPlayers.Count} players in auction. Downloading photos: {completed} of {missing.Count}; {saved} photos saved.";
                     Notice = PhotoProgressText;
                 }
             }
@@ -328,7 +330,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var cancelled = token.IsCancellationRequested ? " Download cancelled." : "";
             Changed(nameof(HasPhotoFailures));
             var failureDetails = failures.Count == 0 ? "" : $" {failures.Count} failed. Open Photo failures for player names, reasons and next steps.";
-            Notice = $"{all.Count} players in auction. Photo download finished: {saved} of {missing.Count} photos saved. {all.Count(player => string.IsNullOrWhiteSpace(player.PlayerPhotoUrl))} players have no photo link and remain in the auction.{cancelled}{failureDetails}";
+            Notice = $"{auctionPlayers.Count} players in auction. Photo download finished: {saved} of {missing.Count} photos saved. {auctionPlayers.Count(player => string.IsNullOrWhiteSpace(player.PlayerPhotoUrl))} players have no photo link and remain in the auction.{cancelled}{failureDetails}";
         }
         finally { Changed(nameof(HasPhotoFailures)); IsCachingPhotos = false; photoCancellation.Dispose(); photoCancellation = null; }
     }
@@ -346,7 +348,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         var list = choice switch
         {
             "All players" => all.ToList(),
-            "All available players" => all.Where(player => player.Status == AuctionStatus.Available).ToList(),
+            "All available players" => all.Where(player => player.Status == AuctionStatus.Available && !player.IsIconPlayer).ToList(),
             "All sold players" => all.Where(player => player.Status == AuctionStatus.Sold).ToList(),
             _ => all.Where(player => player.Status == AuctionStatus.Unsold && (choice != "Unsold in current round" || player.AuctionRound == Session!.CurrentRound)).ToList()
         };
@@ -354,7 +356,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         if (choice == "Selected team squad")
         {
             var name = dialogs.Choose("Choose team", Teams.Select(team => team.Name).ToArray()); if (name == null) return;
-            list = all.Where(player => player.Status == AuctionStatus.Sold && player.TeamName == name).ToList();
+            list = all.Where(player => (player.Status == AuctionStatus.Sold && player.TeamName == name) || (player.IsIconPlayer && player.IconTeamName == name)).ToList();
         }
         if (list.Count == 0) throw new InvalidOperationException("There are no players for this selection.");
         var orderedPlayers = dialogs.ArrangePresentationPlayers(list, choice);
@@ -373,28 +375,28 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
     private async Task TeamReportPdf()
     {
-        var sold = all.Where(player => player.Status == AuctionStatus.Sold).ToList();
-        if (sold.Count == 0) throw new InvalidOperationException("There are no purchased players to include in the team report.");
-        var purchasingTeams = auction.Teams().Where(team => sold.Any(player => player.TeamId == team.Id)).ToList();
-        if (!dialogs.Confirm($"Generate the team purchase PDF?\n\nTeams with purchases: {purchasingTeams.Count}\n{string.Join(", ", purchasingTeams.Select(team => team.Name))}\nPurchased players: {sold.Count}\nPhotos available: {sold.Count(player => player.Photo is { Length: > 0 })}\n\nContinue to choose the PDF file location?")) return;
+        var squadPlayers = all.Where(player => player.Status == AuctionStatus.Sold || player.IsIconPlayer).ToList();
+        if (squadPlayers.Count == 0) throw new InvalidOperationException("There are no team players to include in the team report.");
+        var purchasingTeams = auction.Teams().Where(team => squadPlayers.Any(player => player.TeamId == team.Id || (player.IsIconPlayer && player.IconTeamId == team.Id))).ToList();
+        if (!dialogs.Confirm($"Generate the team purchase PDF?\n\nTeams with squad players: {purchasingTeams.Count}\n{string.Join(", ", purchasingTeams.Select(team => team.Name))}\nSquad players: {squadPlayers.Count}\nPhotos available: {squadPlayers.Count(player => player.Photo is { Length: > 0 })}\n\nContinue to choose the PDF file location?")) return;
         var file = dialogs.SaveFile("PDF team report|*.pdf", $"Team_Purchases_{DateTime.Now:yyyyMMdd}.pdf", Session!.ExportLocation); if (file == null) return;
         Notice = "Generating team report PDF…";
-        await Task.Run(() => teamReportPdf.Generate(file, purchasingTeams, sold, Session.TournamentName));
-        Notice = $"Team report PDF saved: {sold.Count} purchased players. {file}";
+        await Task.Run(() => teamReportPdf.Generate(file, purchasingTeams, squadPlayers, Session.TournamentName));
+        Notice = $"Team report PDF saved: {squadPlayers.Count} squad players. {file}";
     }
     private Task TeamPosterImage()
     {
-        var sold = all.Where(player => player.Status == AuctionStatus.Sold).ToList();
-        if (sold.Count == 0) throw new InvalidOperationException("There are no purchased players to include in a team poster.");
-        var teams = auction.Teams().Where(team => sold.Any(player => player.TeamId == team.Id)).ToList();
+        var squadPlayers = all.Where(player => player.Status == AuctionStatus.Sold || player.IsIconPlayer).ToList();
+        if (squadPlayers.Count == 0) throw new InvalidOperationException("There are no team players to include in a team poster.");
+        var teams = auction.Teams().Where(team => squadPlayers.Any(player => player.TeamId == team.Id || (player.IsIconPlayer && player.IconTeamId == team.Id))).ToList();
         var teamName = dialogs.Choose("Download team poster", teams.Select(team => team.Name).ToArray()); if (teamName == null) return Task.CompletedTask;
-        var team = teams.Single(item => item.Name == teamName); var teamPlayers = sold.Where(player => player.TeamId == team.Id).ToList();
+        var team = teams.Single(item => item.Name == teamName); var teamPlayers = squadPlayers.Where(player => (player.Status == AuctionStatus.Sold && player.TeamId == team.Id) || (player.IsIconPlayer && player.IconTeamId == team.Id)).ToList();
         var design = dialogs.ChoosePosterDesign(teamPosterImage, team, teamPlayers, Session!);
         if (design == null) return Task.CompletedTask;
         var safeTeamName = string.Join("_", team.Name.Split(Path.GetInvalidFileNameChars(), StringSplitOptions.RemoveEmptyEntries));
         var file = dialogs.SaveFile("PNG image|*.png", $"{safeTeamName}_Team_Poster.png", Session!.ExportLocation); if (file == null) return Task.CompletedTask;
         Notice = $"Generating {team.Name} team poster…";
-        teamPosterImage.Generate(file, team, sold, Session.TournamentName, design.Value, Session.AuctionName);
+        teamPosterImage.Generate(file, team, teamPlayers, Session.TournamentName, design.Value, Session.AuctionName);
         Notice = $"Team poster image saved: {team.Name}, {teamPlayers.Count} players. {file}";
         return Task.CompletedTask;
     }

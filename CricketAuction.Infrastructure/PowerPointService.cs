@@ -34,7 +34,8 @@ public sealed class PowerPointService(AppLog log) : IPowerPointService
                     var shapes = new StringBuilder(Group);
                     shapes.Append(Rect(2, "Top accent", 0, 0, 12192000, 90000, "E6B64B"));
                     shapes.Append(Text(3, "Tournament", tournament.ToUpperInvariant(), 500000, 250000, 11000000, 420000, 1900, "7CE2BD", true));
-                    shapes.Append(Text(4, "Player status", $"{player.Status.ToString().ToUpperInvariant()} PLAYER   |   ROUND {round}   |   PLAYER {i + 1:00} / {players.Count:00}", 500000, 690000, 11000000, 380000, 1800, "E6B64B", true));
+                    var playerStatus = player.IsIconPlayer ? "ICON PLAYER · FREE" : $"{player.Status.ToString().ToUpperInvariant()} PLAYER";
+                    shapes.Append(Text(4, "Player status", $"{playerStatus}   |   ROUND {round}   |   PLAYER {i + 1:00} / {players.Count:00}", 500000, 690000, 11000000, 380000, 1800, "E6B64B", true));
                     shapes.Append(Rect(5, "Photo mat", 450000, 1250000, 4100000, 4950000, "183B33"));
                     if (player.Photo is { Length: > 8 } photo && ImageService.IsImage(photo))
                     {
@@ -58,7 +59,9 @@ public sealed class PowerPointService(AppLog log) : IPowerPointService
                     shapes.Append(Rect(17, "Row divider", 4950000, 5580000, 6650000, 20000, "29483F"));
                     shapes.Append(Text(18, "Bowling label", "BOWLING", 4950000, 5810000, 1700000, 350000, 1600, "A8C1B7", true));
                     shapes.Append(Text(19, "Bowling", string.IsNullOrWhiteSpace(player.BowlingStyle) ? "NA" : player.BowlingStyle, 6900000, 5690000, 4700000, 520000, 2300, "FFFFFF", true));
-                    if (player.Status == AuctionStatus.Sold)
+                    if (player.IsIconPlayer)
+                        shapes.Append(Text(20, "Icon assignment", $"ICON PLAYER · FREE  |  TEAM {player.IconTeamName}", 4950000, 6300000, 6650000, 380000, 1800, "E6B64B", true));
+                    else if (player.Status == AuctionStatus.Sold)
                         shapes.Append(Text(20, "Sale details", $"SOLD TO  {player.TeamName}  |  {player.SoldPrice}", 4950000, 6300000, 6650000, 380000, 1800, "E6B64B", true));
                     Xml(slide, $"<p:sld {Ns}><p:cSld><p:spTree>{shapes}</p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>");
                     slides.Append($"<p:sldId id=\"{256 + i}\" r:id=\"{id}\"/>");

@@ -28,16 +28,24 @@ public class Player
     public long SoldPaise { get; set; }
     public int? TeamId { get; set; }
     public Team? Team { get; set; }
+    [NotMapped] public bool IsIconPlayer { get; set; }
+    [NotMapped] public int? IconTeamId { get; set; }
+    [NotMapped] public string IconTeamName { get; set; } = "";
     public DateTime? SoldAt { get; set; }
     public string Notes { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     [NotMapped] public string SoldPrice => Money.Format(SoldPaise);
+    [NotMapped] public string SquadPrice => IsIconPlayer ? "Free" : SoldPrice;
+    [NotMapped] public string SquadLabel => IsIconPlayer ? "ICON · FREE" : "PURCHASED";
+    [NotMapped] public string AuctionStatusLabel => IsIconPlayer ? "Icon" : Status.ToString();
+    [NotMapped] public string AuctionDisplayPrice => IsIconPlayer ? "Free" : SoldPrice;
     [NotMapped] public string Jersey => $"{JerseyName} #{JerseyNumber}";
-    [NotMapped] public string TeamName => Team?.Name ?? "";
+    [NotMapped] public string TeamName => IsIconPlayer ? IconTeamName : Team?.Name ?? "";
 }
 public class Team
 {
+    public const int SquadLimit = 25;
     public int Id { get; set; }
     public string Name { get; set; } = "";
     public string OwnerName { get; set; } = "";
@@ -45,6 +53,9 @@ public class Team
     public long? BudgetPaise { get; set; }
     [NotMapped] public long SpentPaise { get; set; }
     [NotMapped] public int PlayerCount { get; set; }
+    [NotMapped] public int? IconPlayerId { get; set; }
+    [NotMapped] public int IconPlayerCount { get; set; }
+    [NotMapped] public string IconPlayerName { get; set; } = "";
     [NotMapped] public string Spent => Money.Format(SpentPaise);
     [NotMapped] public string Budget => BudgetPaise.HasValue ? Money.Format(BudgetPaise.Value) : "Unlimited";
     [NotMapped] public string Remaining => BudgetPaise.HasValue ? Money.Format(BudgetPaise.Value - SpentPaise) : "Unlimited";
@@ -132,7 +143,7 @@ public record Statistics(int Total, int Sold, int Unsold, int Available, long To
     public static Statistics Calculate(IEnumerable<Player> players)
     {
         var all = players.ToList(); var sold = all.Where(p => p.Status == AuctionStatus.Sold).ToList();
-        return new(all.Count, sold.Count, all.Count(p => p.Status == AuctionStatus.Unsold), all.Count(p => p.Status == AuctionStatus.Available),
+        return new(all.Count, sold.Count, all.Count(p => p.Status == AuctionStatus.Unsold), all.Count(p => p.Status == AuctionStatus.Available && !p.IsIconPlayer),
             sold.Sum(p => p.SoldPaise), sold.Count == 0 ? 0 : (long)Math.Round(sold.Average(p => p.SoldPaise)), sold.Count == 0 ? 0 : sold.Max(p => p.SoldPaise));
     }
 }

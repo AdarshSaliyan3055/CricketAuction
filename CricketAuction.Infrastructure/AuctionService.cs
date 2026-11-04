@@ -6,17 +6,113 @@ namespace CricketAuction.Infrastructure;
 
 public sealed class AuctionService(Workspace workspace, AppLog log) : IAuctionService, IPlayerService, ITeamService
 {
-    public List<Player> Players() { using var db = workspace.Open(); return db.Players.Include(p => p.Team).AsNoTracking().OrderBy(p => p.FullName).ToList(); }
+    public List<Player> Players()
+    {
+        using var db = workspace.Open(); EnsureIconAssignmentsTable(db);
+        var players = db.Players.Include(p => p.Team).AsNoTracking().OrderBy(p => p.FullName).ToList();
+        var assignments = IconAssignments(db).ToDictionary(item => item.PlayerId, item => item.TeamId);
+        var teamNames = db.Teams.AsNoTracking().ToDictionary(team => team.Id, team => team.Name);
+        foreach (var player in players)
+            if (assignments.TryGetValue(player.Id, out var teamId))
+            {
+                player.IsIconPlayer = true;
+                player.IconTeamId = teamId;
+                player.IconTeamName = teamNames.GetValueOrDefault(teamId, "");
+            }
+        return players;
+    }
     public List<AuctionHistory> History(int? playerId = null)
     {
         using var db = workspace.Open(); return db.History.Include(h => h.Player).AsNoTracking().Where(h => playerId == null || h.PlayerId == playerId).OrderByDescending(h => h.Id).ToList();
     }
     public List<Team> Teams()
     {
-        using var db = workspace.Open(); var teams = db.Teams.AsNoTracking().OrderBy(t => t.Name).ToList();
+        using var db = workspace.Open(); EnsureIconAssignmentsTable(db); var teams = db.Teams.AsNoTracking().OrderBy(t => t.Name).ToList();
         var sales = db.Players.Where(p => p.Status == AuctionStatus.Sold).Select(p => new { p.TeamId, p.SoldPaise }).ToList();
-        foreach (var team in teams) { team.SpentPaise = sales.Where(p => p.TeamId == team.Id).Sum(p => p.SoldPaise); team.PlayerCount = sales.Count(p => p.TeamId == team.Id); }
+        var iconAssignments = IconAssignments(db);
+        foreach (var team in teams)
+        {
+            team.SpentPaise = sales.Where(p => p.TeamId == team.Id).Sum(p => p.SoldPaise);
+            var icons = iconAssignments.Where(item => item.TeamId == team.Id).ToList();
+            team.IconPlayerId = icons.FirstOrDefault().PlayerId is var iconId && iconId != 0 ? iconId : null;
+            team.IconPlayerCount = icons.Count;
+            team.IconPlayerName = string.Join(", ", db.Players.AsNoTracking().Where(player => icons.Select(item => item.PlayerId).Contains(player.Id))
+                .OrderBy(player => player.FullName).Select(player => player.FullName));
+            team.PlayerCount = sales.Count(p => p.TeamId == team.Id) + icons.Count;
+        }
         return teams;
+    }
+
+    public bool CanAssignIconPlayers()
+    {
+        using var db = workspace.Open();
+        return !db.History.Any();
+    }
+
+    public void AssignIconPlayer(int playerId, int teamId)
+    {
+        using var db = workspace.Open(); EnsureIconAssignmentsTable(db); using var tx = db.Database.BeginTransaction();
+        if (db.History.Any()) throw new InvalidOperationException("Icon players can only be assigned before the auction starts.");
+        var player = db.Players.SingleOrDefault(item => item.Id == playerId) ?? throw new InvalidOperationException("Player was not found.");
+        if (player.Status != AuctionStatus.Available) throw new InvalidOperationException("Only available players can be assigned as icon players.");
+        if (!db.Teams.Any(team => team.Id == teamId)) throw new InvalidOperationException("Team was not found.");
+        if (IsIconAssigned(db, playerId)) throw new InvalidOperationException("This player is already assigned as an icon player.");
+        var soldCount = db.Players.Count(item => item.Status == AuctionStatus.Sold && item.TeamId == teamId);
+        var iconCount = IconAssignments(db).Count(item => item.TeamId == teamId);
+        if (soldCount + iconCount >= Team.SquadLimit) throw new InvalidOperationException($"This team has reached its {Team.SquadLimit}-player squad limit.");
+        db.Database.ExecuteSqlInterpolated($"INSERT INTO IconAssignments (PlayerId, TeamId) VALUES ({playerId}, {teamId})");
+        tx.Commit(); log.Write($"Icon player assigned playerId={playerId} teamId={teamId}");
+    }
+
+    public void RemoveIconPlayer(int teamId, int playerId)
+    {
+        using var db = workspace.Open(); EnsureIconAssignmentsTable(db); using var tx = db.Database.BeginTransaction();
+        if (db.History.Any()) throw new InvalidOperationException("Icon players can only be removed before the auction starts.");
+        db.Database.ExecuteSqlInterpolated($"DELETE FROM IconAssignments WHERE TeamId = {teamId} AND PlayerId = {playerId}");
+        tx.Commit(); log.Write($"Icon player removed playerId={playerId} teamId={teamId}");
+    }
+
+    private static void EnsureIconAssignmentsTable(AuctionDb db)
+    {
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open) connection.Open();
+        using var inspect = connection.CreateCommand();
+        inspect.CommandText = "SELECT sql FROM sqlite_master WHERE type='table' AND name='IconAssignments'";
+        var schema = inspect.ExecuteScalar() as string;
+        if (schema == null)
+        {
+            db.Database.ExecuteSqlRaw("CREATE TABLE IconAssignments (PlayerId INTEGER PRIMARY KEY REFERENCES Players(Id) ON DELETE CASCADE, TeamId INTEGER NOT NULL REFERENCES Teams(Id) ON DELETE CASCADE)");
+            return;
+        }
+        if (schema.Contains("TeamId INTEGER NOT NULL UNIQUE", StringComparison.OrdinalIgnoreCase))
+        {
+            db.Database.ExecuteSqlRaw("ALTER TABLE IconAssignments RENAME TO IconAssignments_SingleTeam");
+            db.Database.ExecuteSqlRaw("CREATE TABLE IconAssignments (PlayerId INTEGER PRIMARY KEY REFERENCES Players(Id) ON DELETE CASCADE, TeamId INTEGER NOT NULL REFERENCES Teams(Id) ON DELETE CASCADE)");
+            db.Database.ExecuteSqlRaw("INSERT INTO IconAssignments (PlayerId, TeamId) SELECT PlayerId, TeamId FROM IconAssignments_SingleTeam");
+            db.Database.ExecuteSqlRaw("DROP TABLE IconAssignments_SingleTeam");
+        }
+    }
+
+    private static List<(int PlayerId, int TeamId)> IconAssignments(AuctionDb db)
+    {
+        EnsureIconAssignmentsTable(db);
+        var assignments = new List<(int PlayerId, int TeamId)>();
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open) connection.Open();
+        using var command = connection.CreateCommand(); command.CommandText = "SELECT PlayerId, TeamId FROM IconAssignments";
+        using var reader = command.ExecuteReader();
+        while (reader.Read()) assignments.Add((reader.GetInt32(0), reader.GetInt32(1)));
+        return assignments;
+    }
+
+    private static bool IsIconAssigned(AuctionDb db, int playerId)
+    {
+        EnsureIconAssignmentsTable(db);
+        var connection = db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open) connection.Open();
+        using var command = connection.CreateCommand(); command.CommandText = "SELECT 1 FROM IconAssignments WHERE PlayerId = $playerId LIMIT 1";
+        var parameter = command.CreateParameter(); parameter.ParameterName = "$playerId"; parameter.Value = playerId; command.Parameters.Add(parameter);
+        return command.ExecuteScalar() != null;
     }
     public void SaveTeam(Team team)
     {
@@ -118,7 +214,10 @@ public sealed class AuctionService(Workspace workspace, AppLog log) : IAuctionSe
         if (paise <= 0 || paise > 100_000_000_000) throw new InvalidOperationException("Sold amount must be greater than zero and at most ₹1,00,00,00,000.");
         using var db = workspace.Open(); using var tx = db.Database.BeginTransaction();
         var p = db.Players.Single(p => p.Id == playerId); var team = db.Teams.Single(t => t.Id == teamId); var session = db.Sessions.Single();
+        if (IsIconAssigned(db, playerId)) throw new InvalidOperationException("Icon players are not part of the auction and cannot be sold.");
         if (p.Status != AuctionStatus.Available) throw new InvalidOperationException("Only available players can be sold. Start a re-auction for unsold players, or undo an incorrect action.");
+        if (db.Players.Count(player => player.TeamId == teamId && player.Status == AuctionStatus.Sold) + IconAssignments(db).Count(item => item.TeamId == teamId) >= Team.SquadLimit)
+            throw new InvalidOperationException($"{team.Name} has reached its {Team.SquadLimit}-player squad limit.");
         var spent = db.Players.Where(p => p.TeamId == teamId && p.Status == AuctionStatus.Sold).Sum(p => p.SoldPaise);
         if (session.EnableBudgets && team.BudgetPaise.HasValue && spent + paise > team.BudgetPaise.Value)
             throw new InvalidOperationException($"{team.Name} has only {Money.Format(team.BudgetPaise.Value - spent)} remaining. Cannot complete sale for {Money.Format(paise)}.");
@@ -130,6 +229,7 @@ public sealed class AuctionService(Workspace workspace, AppLog log) : IAuctionSe
     public void MarkUnsold(int playerId)
     {
         using var db = workspace.Open(); using var tx = db.Database.BeginTransaction(); var p = db.Players.Single(p => p.Id == playerId);
+        if (IsIconAssigned(db, playerId)) throw new InvalidOperationException("Icon players are not part of the auction and cannot be marked unsold.");
         if (p.Status != AuctionStatus.Available) throw new InvalidOperationException("Only available players can be marked unsold.");
         var before = AuctionState.Of(p); p.Status = AuctionStatus.Unsold;
         Record(db, p, before, "Unsold", Guid.NewGuid(), db.Sessions.Single().CurrentRound);
@@ -138,9 +238,11 @@ public sealed class AuctionService(Workspace workspace, AppLog log) : IAuctionSe
     public int StartNextRound()
     {
         using var db = workspace.Open(); using var tx = db.Database.BeginTransaction(); var session = db.Sessions.Single();
+        var iconPlayerIds = IconAssignments(db).Select(item => item.PlayerId).ToHashSet();
         var unsold = db.Players.Where(p => p.Status == AuctionStatus.Unsold).ToList();
         if (unsold.Count == 0) throw new InvalidOperationException("There are no unsold players to re-auction.");
-        if (db.Players.Any(p => p.Status == AuctionStatus.Available)) throw new InvalidOperationException("Finish the available players in this round before starting the next round.");
+        if (db.Players.Any(p => p.Status == AuctionStatus.Available && !iconPlayerIds.Contains(p.Id)))
+            throw new InvalidOperationException("Finish the available players in this round before starting the next round.");
         var oldRound = session.CurrentRound; session.CurrentRound++; var action = Guid.NewGuid();
         foreach (var p in unsold) { var before = AuctionState.Of(p); p.Status = AuctionStatus.Available; p.AuctionRound = session.CurrentRound; Record(db, p, before, "Re-auction", action, oldRound); }
         db.SaveChanges(); tx.Commit(); log.Write("Re-auction started"); return unsold.Count;

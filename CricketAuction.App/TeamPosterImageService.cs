@@ -52,9 +52,10 @@ public sealed class TeamPosterImageService(AppLog log)
         TeamPosterDesign design, string auctionName = "", int pixelWidth = Width)
     {
         if (pixelWidth < 1 || pixelWidth > Width) throw new ArgumentOutOfRangeException(nameof(pixelWidth));
-        var purchases = players.Where(player => player.Status == AuctionStatus.Sold && player.TeamId == team.Id)
-            .OrderBy(player => player.FullName).ToList();
-        if (purchases.Count == 0) throw new InvalidOperationException($"{team.Name} has not bought any players yet.");
+        var purchases = players.Where(player => (player.Status == AuctionStatus.Sold && player.TeamId == team.Id)
+                || (player.IsIconPlayer && player.IconTeamId == team.Id))
+            .OrderByDescending(player => player.IsIconPlayer).ThenBy(player => player.FullName).ToList();
+        if (purchases.Count == 0) throw new InvalidOperationException($"{team.Name} has no squad players yet.");
         var palette = ColorsFor(design);
         var columns = design is TeamPosterDesign.StadiumBlue or TeamPosterDesign.CrimsonSpotlight ? 4 : 5;
         const double gap = 22;
@@ -104,7 +105,7 @@ public sealed class TeamPosterImageService(AppLog log)
                 var photo = new Rect(x + 12, y + 12, cardWidth - 24, cardWidth - 24);
                 if (design == TeamPosterDesign.CleanCards)
                 {
-                    Text(dc, player.PlayerType, x + 10, y + 10, 17, palette.Ink, cardWidth - 20, 27);
+                    Text(dc, player.IsIconPlayer ? "ICON PLAYER · FREE" : player.PlayerType, x + 10, y + 10, 17, palette.Ink, cardWidth - 20, 27);
                     photo = new Rect(x + 12, y + 42, cardWidth - 24, cardWidth - 54);
                 }
                 DrawPhoto(dc, player.Photo, photo, palette.Accent);
@@ -123,7 +124,7 @@ public sealed class TeamPosterImageService(AppLog log)
                 var nameInk = design == TeamPosterDesign.CleanCards ? Colors.White : palette.Ink;
                 Text(dc, player.FullName, x + 14, y + cardWidth + 14, 24, nameInk, cardWidth - 28, 64);
                 if (design != TeamPosterDesign.CleanCards)
-                    Text(dc, player.PlayerType, x + 14, y + cardWidth + 86, 17, palette.Ink, cardWidth - 28, 30);
+                    Text(dc, player.IsIconPlayer ? "ICON PLAYER · FREE" : player.PlayerType, x + 14, y + cardWidth + 86, 17, palette.Ink, cardWidth - 28, 30);
             }
             var footerInk = design == TeamPosterDesign.ClassicGreen ? palette.Header : palette.Ink;
             dc.DrawRectangle(new SolidColorBrush(palette.Accent), null, new Rect(Margin, height - 56, Width - 2 * Margin, 2));

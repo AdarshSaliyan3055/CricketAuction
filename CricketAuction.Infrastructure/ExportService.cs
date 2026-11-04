@@ -8,12 +8,12 @@ public sealed class ExportService(Workspace workspace, AuctionService auction, A
     {
         using var book = new XLWorkbook();
         var sheet = book.AddWorksheet("Players");
-        string[] headers = ["Player ID", "Player", "Phone", "Age", "Player Type", "Batting", "Bowling", "City", "Jersey Name", "Jersey Number", "Jersey Size", "Status", "Round", "Sold Amount (INR)", "Sold To", "Sold At (UTC)", "Notes", "Registration Timestamp", "Photo URL", "Original Registration"];
+        string[] headers = ["Player ID", "Player", "Phone", "Age", "Player Type", "Batting", "Bowling", "City", "Jersey Name", "Jersey Number", "Jersey Size", "Status", "Round", "Sold Amount (INR)", "Sold To", "Sold At (UTC)", "Notes", "Registration Timestamp", "Photo URL", "Original Registration", "Icon Player", "Icon Team"];
         Header(sheet, headers);
         var r = 2;
         foreach (var p in players)
         {
-            object?[] values = [p.Id, p.FullName, p.PhoneNumber, p.Age, p.PlayerType, p.BattingStyle, p.BowlingStyle, p.AreaCity, p.JerseyName, p.JerseyNumber, p.JerseySize, p.Status.ToString(), p.AuctionRound, p.SoldPaise / 100m, p.TeamName, p.SoldAt?.ToString("O"), p.Notes, p.RegistrationTimestamp, p.PlayerPhotoUrl, p.OriginalRegistrationJson];
+            object?[] values = [p.Id, p.FullName, p.PhoneNumber, p.Age, p.PlayerType, p.BattingStyle, p.BowlingStyle, p.AreaCity, p.JerseyName, p.JerseyNumber, p.JerseySize, p.Status.ToString(), p.AuctionRound, p.SoldPaise / 100m, p.TeamName, p.SoldAt?.ToString("O"), p.Notes, p.RegistrationTimestamp, p.PlayerPhotoUrl, p.OriginalRegistrationJson, p.IsIconPlayer ? "Yes" : "No", p.IconTeamName];
             WriteRow(sheet, r++, values);
         }
         sheet.Column(14).Style.NumberFormat.Format = "₹ #,##0.00"; Finish(sheet);
@@ -28,24 +28,25 @@ public sealed class ExportService(Workspace workspace, AuctionService auction, A
             foreach (var t in auction.Teams()) WriteRow(teams, r++, [t.Name, t.OwnerName, t.BudgetPaise / 100m, t.SpentPaise / 100m, (t.BudgetPaise - t.SpentPaise) / 100m, t.PlayerCount]);
             Finish(teams);
             var purchases = book.AddWorksheet("Team Purchases");
-            Header(purchases, ["Team", "Owner name", "Player", "Age", "Phone", "Player Type", "City", "Batting", "Bowling", "Bought For (INR)", "Round", "Sold At (UTC)", "Notes"]);
-            var soldPlayers = auction.Players().Where(p => p.Status == AuctionStatus.Sold).ToList(); r = 2;
+            Header(purchases, ["Team", "Owner name", "Player", "Age", "Phone", "Player Type", "City", "Batting", "Bowling", "Bought For (INR)", "Round", "Sold At (UTC)", "Notes", "Squad role"]);
+            var squadPlayers = auction.Players().Where(p => p.Status == AuctionStatus.Sold || p.IsIconPlayer).ToList();
+            var soldPlayers = squadPlayers.Where(p => p.Status == AuctionStatus.Sold).ToList(); r = 2;
             foreach (var team in auction.Teams().OrderBy(t => t.Name))
             {
-                var members = soldPlayers.Where(p => p.TeamId == team.Id).OrderBy(p => p.FullName).ToList();
+                var members = squadPlayers.Where(p => (p.Status == AuctionStatus.Sold && p.TeamId == team.Id) || (p.IsIconPlayer && p.IconTeamId == team.Id)).OrderByDescending(p => p.IsIconPlayer).ThenBy(p => p.FullName).ToList();
                 foreach (var p in members)
                 {
-                    WriteRow(purchases, r, [team.Name, team.OwnerName, p.FullName, p.Age, p.PhoneNumber, p.PlayerType, p.AreaCity, p.BattingStyle, p.BowlingStyle, p.SoldPaise / 100m, p.AuctionRound, p.SoldAt?.ToString("O"), p.Notes]);
+                    WriteRow(purchases, r, [team.Name, team.OwnerName, p.FullName, p.Age, p.PhoneNumber, p.PlayerType, p.AreaCity, p.BattingStyle, p.BowlingStyle, p.IsIconPlayer ? 0m : p.SoldPaise / 100m, p.AuctionRound, p.SoldAt?.ToString("O"), p.IsIconPlayer ? "ICON PLAYER · FREE" : p.Notes, p.IsIconPlayer ? "ICON PLAYER" : "PURCHASED"]);
                     if (r % 2 == 0) purchases.Row(r).Style.Fill.BackgroundColor = XLColor.FromHtml("#F1F7F3");
                     r++;
                 }
                 if (members.Count > 0)
                 {
-                    WriteRow(purchases, r, [team.Name, "TEAM TOTAL", "", "", "", "", "", "", "", members.Sum(p => p.SoldPaise) / 100m, "", "", $"{members.Count} players"]);
+                    WriteRow(purchases, r, [team.Name, "TEAM TOTAL", "", "", "", "", "", "", "", members.Where(p => !p.IsIconPlayer).Sum(p => p.SoldPaise) / 100m, "", "", $"{members.Count} players", ""]);
                     purchases.Row(r).Style.Fill.BackgroundColor = XLColor.FromHtml("#DCECE2"); purchases.Row(r).Style.Font.Bold = true; r++;
                 }
             }
-            WriteRow(purchases, r, ["ALL TEAMS", "AUCTION TOTAL", "", "", "", "", "", "", "", soldPlayers.Sum(p => p.SoldPaise) / 100m, "", "", $"{soldPlayers.Count} players"]);
+            WriteRow(purchases, r, ["ALL TEAMS", "AUCTION TOTAL", "", "", "", "", "", "", "", soldPlayers.Sum(p => p.SoldPaise) / 100m, "", "", $"{soldPlayers.Count} sold players", ""]);
             purchases.Row(r).Style.Fill.BackgroundColor = XLColor.FromHtml("#12382F"); purchases.Row(r).Style.Font.FontColor = XLColor.White; purchases.Row(r).Style.Font.Bold = true;
             purchases.Column(10).Style.NumberFormat.Format = "₹ #,##0.00"; Finish(purchases);
             var summary = book.AddWorksheet("Summary"); var stats = Statistics.Calculate(auction.Players()); var session = workspace.Session();

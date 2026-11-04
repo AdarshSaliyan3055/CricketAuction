@@ -16,16 +16,17 @@ public sealed class TeamReportPdfService(AppLog log)
 
     public void Generate(string path, IReadOnlyList<Team> teams, IReadOnlyList<Player> players, string tournament)
     {
-        if (!players.Any(player => player.Status == AuctionStatus.Sold))
-            throw new InvalidOperationException("There are no purchased players to include in the team report.");
+        if (!players.Any(player => player.Status == AuctionStatus.Sold || player.IsIconPlayer))
+            throw new InvalidOperationException("There are no team players to include in the team report.");
 
         using var document = new PdfDocument();
         document.Info.Title = $"{tournament} - Team Purchases";
-        var sold = players.Where(player => player.Status == AuctionStatus.Sold).ToList();
+        var sold = players.Where(player => player.Status == AuctionStatus.Sold || player.IsIconPlayer).ToList();
         var pageNumber = 0;
         foreach (var team in teams.OrderBy(team => team.Name))
         {
-            var purchases = sold.Where(player => player.TeamId == team.Id).OrderBy(player => player.FullName).ToList();
+            var purchases = sold.Where(player => (player.Status == AuctionStatus.Sold && player.TeamId == team.Id) || (player.IsIconPlayer && player.IconTeamId == team.Id))
+                .OrderByDescending(player => player.IsIconPlayer).ThenBy(player => player.FullName).ToList();
             var pageCount = Math.Max(1, (int)Math.Ceiling(purchases.Count / (double)RowsPerPage));
             for (var chunk = 0; chunk < pageCount; chunk++)
             {
@@ -81,10 +82,10 @@ public sealed class TeamReportPdfService(AppLog log)
             var priceX = width - Margin - 125;
             var textWidth = priceX - textX - 16;
             DrawText(graphics, player.FullName, new XFont("Arial", 14, XFontStyle.Bold), new XSolidBrush(Forest), new XRect(textX, y + 7, textWidth, 27), XStringFormats.TopLeft);
-            var details = string.Join("  |  ", new[] { player.PlayerType, player.AreaCity, $"Round {player.AuctionRound}" }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            var details = string.Join("  |  ", new[] { player.IsIconPlayer ? "ICON PLAYER · FREE" : player.PlayerType, player.AreaCity, player.IsIconPlayer ? "" : $"Round {player.AuctionRound}" }.Where(value => !string.IsNullOrWhiteSpace(value)));
             DrawText(graphics, details, new XFont("Arial", 9, XFontStyle.Regular), new XSolidBrush(Green), new XRect(textX, y + 37, textWidth, 32), XStringFormats.TopLeft);
-            DrawText(graphics, "BOUGHT FOR", new XFont("Arial", 8, XFontStyle.Bold), new XSolidBrush(XColor.FromArgb(99, 120, 111)), new XRect(width - Margin - 130, y + 13, 118, 14), XStringFormats.TopRight);
-            DrawText(graphics, Money.Format(player.SoldPaise), new XFont("Arial", 15, XFontStyle.Bold), new XSolidBrush(Green), new XRect(priceX, y + 32, 113, 28), XStringFormats.TopRight);
+            DrawText(graphics, player.IsIconPlayer ? "ICON PLAYER" : "BOUGHT FOR", new XFont("Arial", 8, XFontStyle.Bold), new XSolidBrush(XColor.FromArgb(99, 120, 111)), new XRect(width - Margin - 130, y + 13, 118, 14), XStringFormats.TopRight);
+            DrawText(graphics, player.IsIconPlayer ? "FREE" : Money.Format(player.SoldPaise), new XFont("Arial", 15, XFontStyle.Bold), new XSolidBrush(Green), new XRect(priceX, y + 32, 113, 28), XStringFormats.TopRight);
             y += RowHeight;
         }
 
