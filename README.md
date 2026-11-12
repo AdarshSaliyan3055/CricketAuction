@@ -29,6 +29,8 @@ The first launch opens the dashboard and a small Create Auction dialog. Subseque
 
 Click grid headers to sort by name, amount, team, auction time, or another column. Horizontal scrolling exposes additional columns at smaller window sizes. Player details scroll while Sold/Unsold remain fixed. Filters cover role, batting, bowling, city, round, and team; the navigation buttons filter status. Team filtering also provides a sortable squad list.
 
+An optional **Level** (or **Levels**) column accepts whole numbers starting at 0. All valid players import, including level 0. PowerPoint excludes level 0 and defaults to level 1, 2, 3 and so on, with random order within each level. Blank or missing levels appear last in random order. The arrangement popup shows each player's level and lets you move players, reset the initial order, or shuffle by level again before saving. Levels can also be changed in Edit player and are included in Excel exports. Existing auction databases gain the optional field automatically.
+
 ## Keyboard
 
 | Shortcut | Action |

@@ -16,6 +16,7 @@ public sealed class PowerPointService(AppLog log) : IPowerPointService
     private static void Xml(OpenXmlPart part, string xml) { using var stream = part.GetStream(FileMode.Create, FileAccess.Write); var bytes = Encoding.UTF8.GetBytes("<?xml version=\"1.0\" encoding=\"utf-8\"?>" + xml); stream.Write(bytes); }
     public void Generate(string path, IReadOnlyList<Player> players, string tournament, int round)
     {
+        players = players.Where(player => player.Level != 0).ToList();
         if (players.Count == 0) throw new InvalidOperationException("No players selected for the presentation.");
         AtomicFile.Write(path, temporary =>
         {

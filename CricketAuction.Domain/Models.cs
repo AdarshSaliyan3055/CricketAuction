@@ -12,6 +12,7 @@ public class Player
     public string OriginalRegistrationJson { get; set; } = "";
     public string FullName { get; set; } = "";
     public int? Age { get; set; }
+    public int? Level { get; set; }
     public string PhoneNumber { get; set; } = "";
     public string PlayerType { get; set; } = "";
     public string BattingStyle { get; set; } = "";
@@ -132,6 +133,7 @@ public static class PlayerRules
         if (p.FullName.Length > 200) return "Player name must be at most 200 characters.";
         if (!Regex.IsMatch(p.PhoneNumber, @"^\+?[0-9 ()-]+$") || PhoneKey(p.PhoneNumber).Length is < 7 or > 15) return "Phone must contain 7–15 digits.";
         if (p.Age is < 5 or > 100) return "Age must be between 5 and 100.";
+        if (p.Level is < 0) return "Level must be a non-negative whole number or blank.";
         if (p.JerseyNumber.Length > 0 && (!int.TryParse(p.JerseyNumber, out var jersey) || jersey is < 0 or > 999)) return "Jersey number must be between 0 and 999.";
         return null;
     }

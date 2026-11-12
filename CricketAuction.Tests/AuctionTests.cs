@@ -22,6 +22,65 @@ public sealed class AuctionTests : IDisposable
         Assert.Contains(auctions, item => item.TournamentName == "Test Tournament" && item.AuctionName == "Test Auction");
         Assert.Contains(auctions, item => item.TournamentName == "Second Tournament" && item.AuctionName == "Second Auction");
     }
+    [Fact] public void OptionalLevelsImportPersistAndUpdateIncludingZero()
+    {
+        var importer = new ImportService(workspace, log);
+        var rows = importer.Preview(Excel(["Full Name", " Phone Number 2 ", " Level ", "Score", "Column 9"],
+            ["First", "9000000001", "1", "", ""], ["Hidden", "9000000002", "0", "", ""], ["Blank", "9000000003", "", "", ""]));
+        Assert.All(rows, row => Assert.Empty(row.Error));
+        Assert.Equal(3, importer.Import(rows));
+        Assert.Equal(0, service.Players().Single(p => p.FullName == "Hidden").Level);
+        Assert.Null(service.Players().Single(p => p.FullName == "Blank").Level);
+        var update = importer.Preview(Excel(["Name", "Phone", "Level"], ["First", "9000000001", "3"]));
+        update[0].Resolution = DuplicateResolution.UpdateExisting;
+        importer.Import(update);
+        Assert.Equal(3, service.Players().Single(p => p.FullName == "First").Level);
+        Assert.Null(importer.Preview(Excel(["Name", "Phone"], ["No level", "9000000004"]))[0].Player.Level);
+        foreach (var invalid in new[] { "-1", "1.5", "abc" })
+            Assert.NotEmpty(importer.Preview(Excel(["Name", "Phone", "Level"], ["Invalid", "9000000005", invalid]))[0].Error);
+    }
+    [Fact] public void ExistingDatabaseGainsOptionalLevelWithoutLosingPlayers()
+    {
+        var player = Player();
+        using (var db = workspace.Open()) db.Database.ExecuteSqlRaw("ALTER TABLE Players DROP COLUMN Level");
+        Workspace.ValidateDatabase(workspace.DatabasePath);
+        var reopened = new AuctionService(new Workspace(root), log);
+        var saved = Assert.Single(reopened.Players());
+        Assert.Equal(player.Id, saved.Id);
+        Assert.Null(saved.Level);
+        saved.Level = 2;
+        reopened.SavePlayer(saved);
+        Assert.Equal(2, Assert.Single(reopened.Players()).Level);
+    }
+    [Fact] public void PresentationDefaultsGroupLevelsAndShuffleWithinGroups()
+    {
+        var players = Enumerable.Range(1, 30).Select(i => new Player { Id = i, FullName = $"Player {i:00}", Level = i <= 10 ? 1 : i <= 20 ? 2 : null }).ToList();
+        players.Add(new Player { Id = 31, Level = 0 });
+        players.Add(new Player { Id = 32, Level = 10 });
+        var ordered = PresentationOrder.Create(players, new Random(42));
+        Assert.Equal(31, ordered.Count);
+        Assert.DoesNotContain(ordered, p => p.Level == 0);
+        Assert.All(ordered.Take(10), p => Assert.Equal(1, p.Level));
+        Assert.All(ordered.Skip(10).Take(10), p => Assert.Equal(2, p.Level));
+        Assert.Equal(10, ordered[20].Level);
+        Assert.All(ordered.Skip(21), p => Assert.Null(p.Level));
+        Assert.False(ordered.Take(10).Select(p => p.Id).SequenceEqual(Enumerable.Range(1, 10)));
+        Assert.Equal(31, ordered.Select(p => p.Id).Distinct().Count());
+    }
+    [Fact] public void PowerPointExcludesZeroAndPreservesManualOrder()
+    {
+        var file = Path.Combine(root, "levels.pptx");
+        new PowerPointService(log).Generate(file,
+            [new Player { FullName = "Manual first", Level = 3 }, new Player { FullName = "Excluded", Level = 0 }, new Player { FullName = "Manual second", Level = 1 }], "Test", 1);
+        using var document = PresentationDocument.Open(file, false);
+        var presentation = document.PresentationPart!;
+        var slides = presentation.Presentation.SlideIdList!.Elements<DocumentFormat.OpenXml.Presentation.SlideId>()
+            .Select(id => ((SlidePart)presentation.GetPartById(id.RelationshipId!)).Slide.InnerText).ToList();
+        Assert.Equal(2, slides.Count);
+        Assert.Contains("Manual first", slides[0]);
+        Assert.Contains("Manual second", slides[1]);
+        Assert.Throws<InvalidOperationException>(() => new PowerPointService(log).Generate(file, [new Player { Level = 0 }], "Test", 1));
+    }
     [Fact] public void NewAuctionRequiresAndEnforcesTheConfiguredTeamBudget()
     {
         var budgetRoot = Path.Combine(root, "budgeted"); var budgetWorkspace = new Workspace(budgetRoot);
@@ -60,13 +119,13 @@ public sealed class AuctionTests : IDisposable
     [Fact] public void IconAssignmentCountsTowardSquadLimitAndLocksWhenAuctionStarts()
     {
         var icon = Player(); var team = Team(); service.AssignIconPlayer(icon.Id, team.Id);
-        var players = Enumerable.Range(1, Team.SquadLimit).Select(index => Player($"Squad Player {index}", $"900000{index:0000}", index.ToString())).ToList();
-        foreach (var player in players.Take(Team.SquadLimit - 1)) service.Sell(player.Id, team.Id, 1, "");
-        Assert.Equal(Team.SquadLimit, Assert.Single(service.Teams()).PlayerCount);
+        var players = Enumerable.Range(1, CricketAuction.Domain.Team.SquadLimit).Select(index => Player($"Squad Player {index}", $"900000{index:0000}", index.ToString())).ToList();
+        foreach (var player in players.Take(CricketAuction.Domain.Team.SquadLimit - 1)) service.Sell(player.Id, team.Id, 1, "");
+        Assert.Equal(CricketAuction.Domain.Team.SquadLimit, Assert.Single(service.Teams()).PlayerCount);
         Assert.Throws<InvalidOperationException>(() => service.Sell(players[^1].Id, team.Id, 1, ""));
         Assert.Throws<InvalidOperationException>(() => service.RemoveIconPlayer(team.Id, icon.Id));
         Assert.Throws<InvalidOperationException>(() => service.AssignIconPlayer(players[^1].Id, team.Id));
-        Assert.Equal(Team.SquadLimit, Assert.Single(service.Teams()).PlayerCount);
+        Assert.Equal(CricketAuction.Domain.Team.SquadLimit, Assert.Single(service.Teams()).PlayerCount);
     }
     [Fact] public void TeamCanHaveMultipleIconPlayersAndRemoveOnlyOne()
     {
@@ -237,6 +296,45 @@ public sealed class AuctionTests : IDisposable
         var second = importer.Preview(Excel(["Name", "Phone Number", "Age"], ["Adarsh Saliyan", "8296419486", "25"])); Assert.True(second[0].IsDuplicate); second[0].Resolution = DuplicateResolution.UpdateExisting;
         importer.Import(second); Assert.Equal(25, service.Players()[0].Age); Assert.Contains("Aroor", service.Players()[0].OriginalRegistrationJson);
         second = importer.Preview(Excel(["Name", "Phone"], ["Another", "8296419486"])); second[0].Resolution = DuplicateResolution.ImportAsNew; importer.Import(second); Assert.Equal(2, service.Players().Count);
+    }
+    [Fact] public void ImportIgnoresSpreadsheetPaddingAndCleansCopiedPhone()
+    {
+        const string copiedPhone = "\u202a+91\u00a096110\u00a079095\u202c";
+        var file = Excel(["Timestamp", "Full Name", "Level", "Age", "Phone Number 2", "Player Type", "Batting Style", "Bowling Style", "Player Photo", "Area / City", "Jersey Name", "Jersey Number", "Jersey Size", "Score"],
+            ["11/12/2026 7:20:00", "Preetham ganiga", "", "29", copiedPhone, "Bowler", "Left Hand", "", "https://drive.google.com/open?id=1EuK_Fj7_6445LNHALV9IGiO5SpyQRPs3", "Belmar", "Preetham", "6", "L", "0"]);
+        using (var book = new XLWorkbook(file))
+        {
+            var sheet = book.Worksheets.First();
+            sheet.Cell(2, 16384).Value = "   ";
+            sheet.Cell(100002, 1).Value = "\u00a0";
+            sheet.Cell(100003, 250).CreateComment().AddText("Empty template cell");
+            sheet.Cell(1048576, 16384).Style.Fill.BackgroundColor = XLColor.Red;
+            book.Save();
+        }
+        var importer = new ImportService(workspace, log);
+        var row = Assert.Single(importer.Preview(file));
+        Assert.Empty(row.Error);
+        Assert.Equal(2, row.RowNumber);
+        Assert.Equal("+91 96110 79095", row.Player.PhoneNumber);
+        Assert.Null(row.Player.Level);
+        Assert.Equal("0", System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(row.Player.OriginalRegistrationJson)!["14:Score"]);
+        Assert.Equal(copiedPhone, System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(row.Player.OriginalRegistrationJson)!["5:Phone Number 2"]);
+        Assert.Equal(1, importer.Import([row]));
+        Assert.Equal(0, importer.Import(importer.Preview(file)));
+        Assert.Single(service.Players());
+    }
+    [Fact] public void ImportStillRejectsActualDataBeyondSizeLimits()
+    {
+        foreach (var position in new[] { (Row: 2, Column: 201), (Row: 100002, Column: 1) })
+        {
+            var file = Excel(["Name", "Phone"], ["Player", "9000000001"]);
+            using (var book = new XLWorkbook(file))
+            {
+                book.Worksheets.First().Cell(position.Row, position.Column).Value = "Actual data";
+                book.Save();
+            }
+            Assert.Throws<InvalidOperationException>(() => new ImportService(workspace, log).Preview(file));
+        }
     }
     [Fact] public void SharedPhoneRegistrationsImportDistinctNamesAndReimportWithoutDuplicates()
     {

@@ -50,7 +50,22 @@ public sealed class Workspace
         }
         return auctions.OrderByDescending(item => File.GetLastWriteTimeUtc(item.DatabasePath)).ToList();
     }
-    public AuctionDb Open() => DatabasePath.Length == 0 ? throw new InvalidOperationException("Create or open an auction first.") : new(DatabasePath);
+    public AuctionDb Open()
+    {
+        if (DatabasePath.Length == 0) throw new InvalidOperationException("Create or open an auction first.");
+        var db = new AuctionDb(DatabasePath);
+        try
+        {
+            db.Database.OpenConnection();
+            using var command = db.Database.GetDbConnection().CreateCommand();
+            command.CommandText = "SELECT COUNT(*) FROM pragma_table_info('Players') WHERE name = 'Level'";
+            if (Convert.ToInt32(command.ExecuteScalar()) == 0)
+                db.Database.ExecuteSqlRaw("ALTER TABLE Players ADD COLUMN Level INTEGER NULL");
+            db.Database.CloseConnection();
+            return db;
+        }
+        catch { db.Dispose(); throw; }
+    }
     public void Create(string tournament, string auction, string? path = null, IReadOnlyList<string>? teamNames = null, long? teamBudgetPaise = null)
     {
         if (string.IsNullOrWhiteSpace(tournament) || string.IsNullOrWhiteSpace(auction)) throw new InvalidOperationException("Tournament and auction names are required.");
@@ -83,7 +98,7 @@ public sealed class Workspace
         cmd.CommandText = "SELECT SchemaVersion FROM Sessions WHERE Id=1";
         if (Convert.ToInt32(cmd.ExecuteScalar()) != 1) throw new InvalidOperationException("This auction uses an unsupported database version.");
         using var db = new AuctionDb(path, true);
-        _ = db.Players.AsNoTracking().Take(1).ToList(); _ = db.Teams.AsNoTracking().Take(1).ToList(); _ = db.History.AsNoTracking().Take(1).ToList();
+        _ = db.Players.AsNoTracking().Select(p => new { p.Id, p.FullName, p.PhoneNumber, p.Status }).Take(1).ToList(); _ = db.Teams.AsNoTracking().Take(1).ToList(); _ = db.History.AsNoTracking().Take(1).ToList();
     }
     public void Select(string path)
     {

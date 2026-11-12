@@ -36,6 +36,8 @@ public sealed class DialogService
         window.Content = dock;
         var heading = Label($"{selection} · {players.Count} player slides\nSelect a player and move them into the desired slide order. Press Enter to continue to save.");
         DockPanel.SetDock(heading, Dock.Top); dock.Children.Add(heading);
+        var levelHint = Label("Default: level 1, 2, 3 and so on, shuffled within each level. Blank levels come last; level 0 is excluded. You can change the order below.");
+        DockPanel.SetDock(levelHint, Dock.Top); dock.Children.Add(levelHint);
         var footer = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         DockPanel.SetDock(footer, Dock.Bottom); dock.Children.Add(footer);
         var controls = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 0, 0, 12) };
@@ -47,6 +49,7 @@ public sealed class DialogService
             SelectionUnit = DataGridSelectionUnit.FullRow
         };
         grid.Columns.Add(new DataGridTextColumn { Header = "Slide", Binding = new Binding("Slide"), Width = 65 });
+        grid.Columns.Add(new DataGridTextColumn { Header = "Level", Binding = new Binding("Player.Level"), Width = 65 });
         var photoBinding = new Binding("Player.Photo") { Converter = new PhotoConverter() };
         var photoCell = new FrameworkElementFactory(typeof(Grid));
         photoCell.SetValue(FrameworkElement.HeightProperty, 76.0);
@@ -91,6 +94,7 @@ public sealed class DialogService
         var bottom = Button("Move to last", () => MoveTo(ordered.Count - 1));
         foreach (var button in new[] { top, up, down, bottom }) controls.Children.Add(button);
         controls.Children.Add(Button("Reset order", () => { ordered = players.ToList(); RefreshOrder(0); }));
+        controls.Children.Add(Button("Shuffle by level", () => { ordered = PresentationOrder.Create(players); RefreshOrder(0); }));
         grid.SelectionChanged += (_, _) =>
         {
             top.IsEnabled = up.IsEnabled = grid.SelectedIndex > 0;
@@ -301,6 +305,7 @@ public sealed class DialogService
         var bottom = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right }; DockPanel.SetDock(bottom, Dock.Bottom); dock.Children.Add(bottom);
         var grid = new DataGrid { ItemsSource = rows, AutoGenerateColumns = false, CanUserAddRows = false, SelectionMode = DataGridSelectionMode.Single };
         void Col(string title, string binding, double width) => grid.Columns.Add(new DataGridTextColumn { Header = title, Binding = new Binding(binding), Width = width, IsReadOnly = true });
+        Col("Level", "Player.Level", 60);
         Col("Row", "RowNumber", 48); Col("Name", "Player.FullName", 160); Col("Phone", "Player.PhoneNumber", 115); Col("Type", "Player.PlayerType", 110); Col("Jersey", "Player.Jersey", 110); Col("Validation", "Result", 220);
         grid.Columns.Add(new DataGridComboBoxColumn { Header = "Duplicate decision", ItemsSource = Enum.GetValues<DuplicateResolution>(), SelectedItemBinding = new Binding("Resolution") { Mode = BindingMode.TwoWay, UpdateSourceTrigger = UpdateSourceTrigger.PropertyChanged }, Width = 160 });
         bottom.Children.Add(Button("Cancel", () => window.Close())); bottom.Children.Add(Button("Confirm import", () => { grid.CommitEdit(DataGridEditingUnit.Cell, true); grid.CommitEdit(DataGridEditingUnit.Row, true); window.DialogResult = true; }));
@@ -317,7 +322,7 @@ public sealed class DialogService
     {
         var window = Shell(original.Id == 0 ? "Add player" : "Edit player", 600, 780); var panel = Form(window);
         var fields = new Dictionary<string, TextBox>();
-        foreach (var (property, label) in new[] { ("FullName", "Full name *"), ("Age", "Age"), ("PhoneNumber", "Phone number *"), ("PlayerType", "Player type"), ("BattingStyle", "Batting style"), ("BowlingStyle", "Bowling style"), ("AreaCity", "Area / City"), ("JerseyName", "Jersey name"), ("JerseyNumber", "Jersey number"), ("JerseySize", "Jersey size"), ("PlayerPhotoUrl", "Public photo URL") })
+        foreach (var (property, label) in new[] { ("FullName", "Full name *"), ("Age", "Age"), ("Level", "Level (optional; 0 excludes from PPT)"), ("PhoneNumber", "Phone number *"), ("PlayerType", "Player type"), ("BattingStyle", "Batting style"), ("BowlingStyle", "Bowling style"), ("AreaCity", "Area / City"), ("JerseyName", "Jersey name"), ("JerseyNumber", "Jersey number"), ("JerseySize", "Jersey size"), ("PlayerPhotoUrl", "Public photo URL") })
             fields[property] = Field(panel, label, typeof(Player).GetProperty(property)!.GetValue(original)?.ToString() ?? "");
         Player? result = null;
         SaveButton(panel, window, "Save player", () =>
@@ -325,7 +330,7 @@ public sealed class DialogService
             result = new Player { Id = original.Id };
             foreach (var f in fields)
             {
-                if (f.Key == "Age") { if (f.Value.Text.Length > 0) { if (!int.TryParse(f.Value.Text, out var age)) throw new InvalidOperationException("Age must be a whole number."); result.Age = age; } }
+                if (f.Key is "Age" or "Level") { if (!string.IsNullOrWhiteSpace(f.Value.Text)) { if (!int.TryParse(f.Value.Text, out var number)) throw new InvalidOperationException($"{f.Key} must be a whole number."); typeof(Player).GetProperty(f.Key)!.SetValue(result, number); } }
                 else typeof(Player).GetProperty(f.Key)!.SetValue(result, f.Value.Text.Trim());
             }
             if (PlayerRules.Validate(result) is { } error) throw new InvalidOperationException(error);

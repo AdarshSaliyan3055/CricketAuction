@@ -127,7 +127,7 @@ public sealed class AuctionService(Workspace workspace, AppLog log) : IAuctionSe
     }
     public static void CopyRegistration(Player source, Player target)
     {
-        target.FullName = source.FullName.Trim(); target.Age = source.Age; target.PhoneNumber = source.PhoneNumber.Trim();
+        target.FullName = source.FullName.Trim(); target.Age = source.Age; target.Level = source.Level; target.PhoneNumber = source.PhoneNumber.Trim();
         target.PlayerType = source.PlayerType; target.BattingStyle = source.BattingStyle; target.BowlingStyle = source.BowlingStyle;
         if (target.PlayerPhotoUrl != source.PlayerPhotoUrl && !target.ManualPhoto) target.Photo = null;
         target.PlayerPhotoUrl = source.PlayerPhotoUrl; target.AreaCity = source.AreaCity; target.JerseyName = source.JerseyName;

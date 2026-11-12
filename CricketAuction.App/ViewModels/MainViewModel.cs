@@ -358,7 +358,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var name = dialogs.Choose("Choose team", Teams.Select(team => team.Name).ToArray()); if (name == null) return;
             list = all.Where(player => (player.Status == AuctionStatus.Sold && player.TeamName == name) || (player.IsIconPlayer && player.IconTeamName == name)).ToList();
         }
-        if (list.Count == 0) throw new InvalidOperationException("There are no players for this selection.");
+        list = PresentationOrder.Create(list);
+        if (list.Count == 0) throw new InvalidOperationException("There are no players for this selection. Players with level 0 are excluded from PowerPoint.");
         var orderedPlayers = dialogs.ArrangePresentationPlayers(list, choice);
         if (orderedPlayers == null) return;
         list = orderedPlayers;

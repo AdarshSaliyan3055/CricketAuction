@@ -8,12 +8,12 @@ public sealed class ExportService(Workspace workspace, AuctionService auction, A
     {
         using var book = new XLWorkbook();
         var sheet = book.AddWorksheet("Players");
-        string[] headers = ["Player ID", "Player", "Phone", "Age", "Player Type", "Batting", "Bowling", "City", "Jersey Name", "Jersey Number", "Jersey Size", "Status", "Round", "Sold Amount (INR)", "Sold To", "Sold At (UTC)", "Notes", "Registration Timestamp", "Photo URL", "Original Registration", "Icon Player", "Icon Team"];
+        string[] headers = ["Player ID", "Player", "Phone", "Age", "Player Type", "Batting", "Bowling", "City", "Jersey Name", "Jersey Number", "Jersey Size", "Status", "Round", "Sold Amount (INR)", "Sold To", "Sold At (UTC)", "Notes", "Registration Timestamp", "Photo URL", "Original Registration", "Icon Player", "Icon Team", "Level"];
         Header(sheet, headers);
         var r = 2;
         foreach (var p in players)
         {
-            object?[] values = [p.Id, p.FullName, p.PhoneNumber, p.Age, p.PlayerType, p.BattingStyle, p.BowlingStyle, p.AreaCity, p.JerseyName, p.JerseyNumber, p.JerseySize, p.Status.ToString(), p.AuctionRound, p.SoldPaise / 100m, p.TeamName, p.SoldAt?.ToString("O"), p.Notes, p.RegistrationTimestamp, p.PlayerPhotoUrl, p.OriginalRegistrationJson, p.IsIconPlayer ? "Yes" : "No", p.IconTeamName];
+            object?[] values = [p.Id, p.FullName, p.PhoneNumber, p.Age, p.PlayerType, p.BattingStyle, p.BowlingStyle, p.AreaCity, p.JerseyName, p.JerseyNumber, p.JerseySize, p.Status.ToString(), p.AuctionRound, p.SoldPaise / 100m, p.TeamName, p.SoldAt?.ToString("O"), p.Notes, p.RegistrationTimestamp, p.PlayerPhotoUrl, p.OriginalRegistrationJson, p.IsIconPlayer ? "Yes" : "No", p.IconTeamName, p.Level];
             WriteRow(sheet, r++, values);
         }
         sheet.Column(14).Style.NumberFormat.Format = "₹ #,##0.00"; Finish(sheet);

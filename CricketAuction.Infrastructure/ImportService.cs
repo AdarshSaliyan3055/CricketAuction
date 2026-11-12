@@ -13,6 +13,7 @@ public sealed class ImportService(Workspace workspace, AppLog log) : IImportServ
     private static readonly Dictionary<string, string[]> Aliases = new()
     {
         ["FullName"] = ["fullname", "name", "playername", "nameoftheplayer"],
+        ["Level"] = ["level", "levels", "playerlevel"],
         ["PhoneNumber"] = ["phonenumber", "phone", "mobile", "mobilenumber", "contactnumber", "whatsappnumber"],
         ["Age"] = ["age", "playerage"], ["PlayerType"] = ["playertype", "type", "role", "category", "playerrole"],
         ["BattingStyle"] = ["battingstyle", "batting", "bats"], ["BowlingStyle"] = ["bowlingstyle", "bowling", "bowls"],
@@ -42,7 +43,12 @@ public sealed class ImportService(Workspace workspace, AppLog log) : IImportServ
         {
             using var source = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             using var workbook = new XLWorkbook(source); var sheet = workbook.Worksheets.First();
-            var last = sheet.LastRowUsed()?.RowNumber() ?? 0; var columns = sheet.LastColumnUsed()?.ColumnNumber() ?? 0;
+            // Excel can retain comments, formatting and whitespace far beyond the registrations.
+            // Apply size limits to actual values, not the worksheet's remembered used range.
+            var populated = sheet.CellsUsed(XLCellsUsedOptions.Contents)
+                .Where(cell => !string.IsNullOrWhiteSpace(cell.GetFormattedString()) || cell.HasHyperlink).ToList();
+            var last = populated.Count == 0 ? 0 : populated.Max(cell => cell.Address.RowNumber);
+            var columns = populated.Count == 0 ? 0 : populated.Max(cell => cell.Address.ColumnNumber);
             if (last > 100_001 || columns > 200) throw new InvalidOperationException("Import supports at most 100,000 rows and 200 columns.");
             for (var r = 1; r <= last; r++) records.Add(Enumerable.Range(1, columns).Select(c => sheet.Cell(r, c).HasHyperlink ? sheet.Cell(r, c).GetHyperlink().ExternalAddress?.ToString() ?? sheet.Cell(r, c).GetFormattedString() : sheet.Cell(r, c).GetFormattedString()).ToArray());
         }
@@ -59,13 +65,16 @@ public sealed class ImportService(Workspace workspace, AppLog log) : IImportServ
             {
                 var value = c < values.Length ? values[c].Trim() : ""; original[$"{c + 1}:{headers[c]}"] = value;
                 if (mapping[c] is not { } property) continue;
-                if (property == "Age")
+                if (property is "Age" or "Level")
                 {
-                    if (value.Length > 0) { if (int.TryParse(value, out var age)) row.Player.Age = age; else row.Error = "Age must be a whole number."; }
+                    if (value.Length > 0) { if (int.TryParse(value, out var number)) typeof(Player).GetProperty(property)!.SetValue(row.Player, number); else row.Error = $"{property} must be a whole number."; }
                 }
                 else typeof(Player).GetProperty(property)!.SetValue(row.Player, value);
             }
             row.Player.OriginalRegistrationJson = JsonSerializer.Serialize(original);
+            // Phone numbers copied from messaging apps can contain invisible direction marks
+            // and non-breaking spaces. Keep the original text above for reference.
+            row.Player.PhoneNumber = Regex.Replace(Regex.Replace(row.Player.PhoneNumber, @"\p{Cf}", ""), @"\s", " ").Trim();
             // Correct unambiguous form-entry mistakes while retaining the source values.
             var jersey = row.Player.JerseyNumber;
             if (Regex.IsMatch(jersey, @"^[oO0-9]{1,3}$") && jersey.Any(c => c is 'o' or 'O'))
